@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { cached } from "../cache.js";
-import { getMovieDetails, getTvDetails } from "../clients/tmdb.js";
+import { getMovieDetails, getTvDetails, searchTmdbId } from "../clients/tmdb.js";
 import { getPlexMediaVersions, PlexMediaVersion } from "../clients/plex.js";
 import { getSiloMediaVersions, SiloMediaVersion } from "../clients/silo.js";
 import { getRatingAndComments } from "../clients/trakt.js";
@@ -207,6 +207,21 @@ export async function detailsRoutes(app: FastifyInstance) {
         return { ...tmdb, traktRating: null, traktComments: [] };
       }
     });
+  });
+
+  // Resolves a title+year (from a Plex/Silo search hit, which has no TMDB id of its own)
+  // to a TMDB id, so the detail page can show the full backdrop/cast/similar/ratings view
+  // for titles found by searching a library instead of browsing Popular.
+  app.get("/api/tmdb-lookup", async (request) => {
+    const { title, year, type } = request.query as { title?: string; year?: string; type?: string };
+    if (!title || (type !== "movie" && type !== "show")) {
+      return { error: "Invalid title or type" };
+    }
+    const yearNum = year ? Number(year) : undefined;
+    const tmdbId = await cached(`tmdb-lookup:${type}:${title}:${yearNum ?? ""}`, 3600, () =>
+      searchTmdbId(title, yearNum, type),
+    );
+    return { tmdbId };
   });
 
   app.get("/api/sources", async (request) => {

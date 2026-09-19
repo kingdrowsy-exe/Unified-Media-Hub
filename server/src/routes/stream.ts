@@ -78,10 +78,29 @@ export async function streamRoutes(app: FastifyInstance) {
       // Unlike Plex/Xtream, Silo's stream endpoint requires an Authorization header
       // (not just a token embedded in the URL), which a 302 redirect can't hand off to
       // the browser - so we proxy the video through this server instead of redirecting.
-      // Note: Silo's endpoint doesn't support Range requests, so seeking is limited to
-      // whatever the browser can do with an already-buffered progressive download.
+      //
+      // Every call to resolveSiloStreamUrl opens a brand new playback session with Silo
+      // (a fresh playback_attempt_id) - and we never tell Silo when one is abandoned. The
+      // browser's native seeking on a plain <video src> fires a new request here on every
+      // seek, so without the two things below, rapid seeking piles up concurrent sessions
+      // against whatever limit Silo enforces, which then rejects further attempts until
+      // the old ones time out server-side (the "wait a bit and it works again" pattern).
+      //
+      // 1. accept-ranges: none tells the browser up front that this resource can't be
+      //    range-requested, so it stops trying and just clamps seeking to what's already
+      //    buffered (see Player.tsx's clampToSeekable) instead of firing a new request.
+      // 2. Aborting the upstream Silo fetch when the client disconnects (seeks again,
+      //    closes the player) stops us from holding a session open that nothing wants.
+      reply.header("accept-ranges", "none");
+
       const { url, accessToken } = await resolveSiloStreamUrl(id);
-      const upstream = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+      const controller = new AbortController();
+      reply.raw.on("close", () => controller.abort());
+
+      const upstream = await fetch(url, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        signal: controller.signal,
+      });
       if (!upstream.ok || !upstream.body) {
         return reply.code(502).send({ error: "Failed to reach Silo stream" });
       }

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   fetchDetails,
   fetchSources,
+  lookupTmdbId,
   PopularItem,
   MergedItem,
   TmdbDetails,
@@ -63,15 +64,37 @@ export default function MovieDetail({ item, onClose, onSelectSimilar }: MovieDet
 
   useEffect(() => {
     const parsed = parseTmdbId(item.id);
-    if (!parsed) {
-      setLoading(false);
-      return;
-    }
     setLoading(true);
-    fetchDetails(parsed.type, parsed.tmdbId)
-      .then(setDetails)
-      .catch(() => setError("Couldn't load details"))
-      .finally(() => setLoading(false));
+
+    // Items from a Plex/Silo library search carry the provider's own id, not a TMDB one
+    // (unlike Popular/Trakt items, which come from TMDB already) - look the title up on
+    // TMDB first so the detail page can still show the full backdrop/cast/similar view.
+    const resolveTmdbId = parsed
+      ? Promise.resolve(parsed.tmdbId)
+      : lookupTmdbId(item.title, item.year, item.type).then((res) => res.tmdbId);
+    const type = parsed?.type ?? item.type;
+
+    let cancelled = false;
+    resolveTmdbId
+      .then((tmdbId) => {
+        if (cancelled) return;
+        if (!tmdbId) {
+          setLoading(false);
+          return;
+        }
+        return fetchDetails(type, tmdbId).then((d) => {
+          if (!cancelled) setDetails(d);
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setError("Couldn't load details");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [item.id]);
 
   async function handlePlay() {

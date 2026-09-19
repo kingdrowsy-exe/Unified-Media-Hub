@@ -184,6 +184,18 @@ export function fetchDetails(type: "movie" | "show", tmdbId: number): Promise<Tm
   return getJson(`/api/details/${type}/${tmdbId}`);
 }
 
+export function lookupTmdbId(
+  title: string,
+  year: number | undefined,
+  type: "movie" | "show",
+): Promise<{ tmdbId: number | null }> {
+  const url = new URL("/api/tmdb-lookup", window.location.origin);
+  url.searchParams.set("title", title);
+  if (year) url.searchParams.set("year", String(year));
+  url.searchParams.set("type", type);
+  return getJson(url.toString());
+}
+
 export function fetchSources(title: string, year?: number): Promise<{ versions: SourceVersion[] }> {
   const url = new URL("/api/sources", window.location.origin);
   url.searchParams.set("title", title);

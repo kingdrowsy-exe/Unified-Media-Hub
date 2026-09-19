@@ -150,6 +150,23 @@ export async function getBasicItem(tmdbId: number, type: "movie" | "show"): Prom
   }
 }
 
+// Search results from Plex/Silo carry the provider's own id (e.g. Silo's "movie-tmdb-584"),
+// not a bare TMDB id, so they can't go straight into getMovieDetails/getTvDetails the way
+// Popular/Trakt items (which originate from TMDB) can. This resolves title+year to a TMDB
+// id so the detail page can still show the full backdrop/cast/similar/ratings view for a
+// title someone found by searching their own library instead of browsing Popular.
+export async function searchTmdbId(
+  title: string,
+  year: number | undefined,
+  type: "movie" | "show",
+): Promise<number | null> {
+  const path = type === "movie" ? "/search/movie" : "/search/tv";
+  const params = new URLSearchParams({ query: title });
+  if (year) params.set(type === "movie" ? "year" : "first_air_date_year", String(year));
+  const data = await tmdbFetch<{ results: RawTmdbResult[] }>(`${path}?${params}`);
+  return data.results[0]?.id ?? null;
+}
+
 export interface TmdbCastMember {
   name: string;
   character: string;
