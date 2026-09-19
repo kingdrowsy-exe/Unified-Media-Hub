@@ -13,6 +13,12 @@ is shared between installs, and credentials are stored locally on each person's 
 (in Electron's per-user app-data folder), never anywhere else. No key or credential of any
 kind is bundled into this app or this repo.
 
+## Download
+
+**[⬇ Download the installer](https://github.com/kingdrowsy-exe/Unified-Media-Hub-v2/releases/latest)**
+— grab the `.exe` from the latest release, run it, and log into Settings with your own
+accounts. No Node.js, no terminal, no cloning this repo required.
+
 ## Setting up your accounts (first run)
 
 The app opens on **Settings**. Log in with your own:
