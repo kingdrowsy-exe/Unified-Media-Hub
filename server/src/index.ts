@@ -15,6 +15,19 @@ import { traktRoutes } from "./routes/trakt.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// A malformed/truncated HTTP response from a flaky upstream provider (Xtream, Plex, etc.)
+// can trip an internal assertion in Node's HTTP client (undici) that throws outside of any
+// request's own promise chain - Fastify's per-request error handling can't catch that, and
+// left unhandled it takes the whole process down over one bad response from one provider.
+// Log it and keep serving instead - especially important here since a packaged desktop app
+// has no one watching a terminal to notice and restart it.
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught exception (server staying up):", err);
+});
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled rejection (server staying up):", reason);
+});
+
 export async function startServer() {
   const app = Fastify({ logger: true });
 
