@@ -1,0 +1,107 @@
+import type { FastifyInstance, FastifyReply } from "fastify";
+import { Readable } from "node:stream";
+import { resolvePlexStreamUrl } from "../clients/plex.js";
+import { resolveSiloStreamUrl } from "../clients/silo.js";
+import { liveStreamUrl } from "../clients/xtream.js";
+
+function isPlaylist(contentType: string, url: string): boolean {
+  return /mpegurl/i.test(contentType) || /\.m3u8(\?|$)/i.test(url);
+}
+
+// Xtream/IPTV CDNs vary in whether they send CORS headers, so hls.js (which fetches
+// the manifest and every segment via XHR, unlike a plain <video src>) can be blocked
+// mid-stream by a provider that doesn't. Proxying everything through this same-origin
+// endpoint sidesteps that entirely, and also keeps the upstream credentials/URL out of
+// the browser. Playlists are rewritten so every segment/key/nested-playlist reference
+// routes back through this proxy too.
+function rewritePlaylist(body: string, baseUrl: string): string {
+  const proxied = (raw: string): string => {
+    const absolute = new URL(raw, baseUrl).toString();
+    return `/api/hls?u=${encodeURIComponent(absolute)}`;
+  };
+
+  return body
+    .split("\n")
+    .map((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return line;
+      if (trimmed.startsWith("#")) {
+        return line.replace(/URI="([^"]+)"/i, (_m, uri) => `URI="${proxied(uri)}"`);
+      }
+      return proxied(trimmed);
+    })
+    .join("\n");
+}
+
+async function proxyHlsResource(targetUrl: string, reply: FastifyReply, range?: string) {
+  const upstream = await fetch(targetUrl, range ? { headers: { range } } : undefined);
+  if (!upstream.ok && upstream.status !== 206) {
+    return reply.code(502).send({ error: "Failed to reach stream" });
+  }
+
+  const contentType = upstream.headers.get("content-type") ?? "";
+
+  if (isPlaylist(contentType, targetUrl)) {
+    // Xtream panels 302/301 the given URL on to the real CDN edge server, so relative
+    // segment paths in the playlist must resolve against upstream.url (post-redirect),
+    // not the original targetUrl - the origin domain often doesn't serve segments at all.
+    const rewritten = rewritePlaylist(await upstream.text(), upstream.url);
+    reply.header("content-type", "application/vnd.apple.mpegurl");
+    reply.header("cache-control", "no-store");
+    return reply.send(rewritten);
+  }
+
+  reply.header("content-type", contentType || "video/mp2t");
+  const length = upstream.headers.get("content-length");
+  if (length) reply.header("content-length", length);
+  if (upstream.status === 206) {
+    reply.code(206);
+    reply.header("accept-ranges", "bytes");
+    const contentRange = upstream.headers.get("content-range");
+    if (contentRange) reply.header("content-range", contentRange);
+  }
+  if (!upstream.body) return reply.send();
+  return reply.send(Readable.fromWeb(upstream.body as Parameters<typeof Readable.fromWeb>[0]));
+}
+
+export async function streamRoutes(app: FastifyInstance) {
+  app.get("/api/hls", async (request, reply) => {
+    const { u } = request.query as { u?: string };
+    if (!u) return reply.code(400).send({ error: "Missing url" });
+    return proxyHlsResource(u, reply, request.headers.range as string | undefined);
+  });
+
+  app.get("/api/stream/:source/:id", async (request, reply) => {
+    const { source, id } = request.params as { source: string; id: string };
+
+    if (source === "silo") {
+      // Unlike Plex/Xtream, Silo's stream endpoint requires an Authorization header
+      // (not just a token embedded in the URL), which a 302 redirect can't hand off to
+      // the browser - so we proxy the video through this server instead of redirecting.
+      // Note: Silo's endpoint doesn't support Range requests, so seeking is limited to
+      // whatever the browser can do with an already-buffered progressive download.
+      const { url, accessToken } = await resolveSiloStreamUrl(id);
+      const upstream = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+      if (!upstream.ok || !upstream.body) {
+        return reply.code(502).send({ error: "Failed to reach Silo stream" });
+      }
+      reply.header("content-type", upstream.headers.get("content-type") ?? "video/mp4");
+      const length = upstream.headers.get("content-length");
+      if (length) reply.header("content-length", length);
+      return reply.send(Readable.fromWeb(upstream.body as Parameters<typeof Readable.fromWeb>[0]));
+    }
+
+    if (source === "live") {
+      // See the comment on proxyHlsResource: live TV is HLS, played via hls.js, which
+      // needs CORS on every request - so it's proxied rather than redirected.
+      return proxyHlsResource(liveStreamUrl(Number(id)), reply, request.headers.range as string | undefined);
+    }
+
+    if (source === "plex") {
+      const url = await resolvePlexStreamUrl(id);
+      return reply.code(302).redirect(url);
+    }
+
+    return reply.code(400).send({ error: `Unknown source: ${source}` });
+  });
+}
