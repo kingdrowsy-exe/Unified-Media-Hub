@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, Menu } from "electron";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -35,6 +35,20 @@ async function createWindow() {
   });
 
   mainWindow.loadURL(`http://localhost:${PORT}`);
+
+  // Electron's BrowserWindow has no built-in right-click menu (unlike a regular browser
+  // window) - without this, right-clicking a text field like the Settings credential
+  // inputs does nothing at all, so there's no way to paste via the mouse.
+  mainWindow.webContents.on("context-menu", (_event, params) => {
+    if (!params.isEditable && !params.selectionText) return;
+    Menu.buildFromTemplate([
+      { role: "cut", enabled: params.editFlags.canCut },
+      { role: "copy", enabled: params.editFlags.canCopy },
+      { role: "paste", enabled: params.editFlags.canPaste },
+      { type: "separator" },
+      { role: "selectAll", enabled: params.editFlags.canSelectAll },
+    ]).popup();
+  });
 }
 
 const gotLock = app.requestSingleInstanceLock();
