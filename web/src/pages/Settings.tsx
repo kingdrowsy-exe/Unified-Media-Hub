@@ -301,6 +301,14 @@ export default function Settings() {
 
   return (
     <div className="page settings-page">
+      <div className="settings-hero">
+        <h1 className="settings-heading">Settings</h1>
+        <p className="settings-subheading">Connect your media servers, IPTV provider, and metadata sources.</p>
+      </div>
+
+      <div className="settings-group">
+        <h3 className="settings-group-title">Media Servers</h3>
+
       <section className="settings-card settings-card-plex">
         <div className="settings-card-header">
           <h2>Plex</h2>
@@ -396,6 +404,10 @@ export default function Settings() {
           />
         )}
       </section>
+      </div>
+
+      <div className="settings-group">
+        <h3 className="settings-group-title">Live TV</h3>
 
       <section className="settings-card settings-card-xtream">
         <div className="settings-card-header">
@@ -423,6 +435,10 @@ export default function Settings() {
           />
         )}
       </section>
+      </div>
+
+      <div className="settings-group">
+        <h3 className="settings-group-title">Metadata &amp; Ratings</h3>
 
       <section className="settings-card settings-card-tmdb">
         <div className="settings-card-header">
@@ -520,6 +536,7 @@ export default function Settings() {
         )}
         {traktLink.phase === "error" && <div className="settings-error">{traktLink.message}</div>}
       </section>
+      </div>
     </div>
   );
 }

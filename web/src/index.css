@@ -709,7 +709,19 @@ a {
   color: #30d158;
   text-transform: none;
   font-size: 12px;
-  padding: 3px 10px;
+  padding: 3px 10px 3px 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.badge.connected::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #30d158;
+  flex-shrink: 0;
 }
 
 .epg-now {
@@ -1552,12 +1564,47 @@ a {
 /* ---------- Settings ---------- */
 
 .settings-page {
-  max-width: 560px;
+  max-width: 600px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding-top: 20px;
+  gap: 28px;
+  padding-top: 12px;
+  padding-bottom: 40px;
+}
+
+.settings-hero {
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.settings-heading {
+  font-size: clamp(26px, 3.4vw, 34px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0 0 8px;
+}
+
+.settings-subheading {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin: 0;
+}
+
+.settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.settings-group-title {
+  margin: 0;
+  padding-left: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
 .settings-card {
@@ -1566,6 +1613,12 @@ a {
   border-left: 3px solid var(--border);
   border-radius: 14px;
   padding: 22px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.settings-card:hover {
+  border-color: #3a3a3c;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.22);
 }
 
 .settings-card-plex {
@@ -1595,6 +1648,7 @@ a {
 .settings-card-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
   margin-bottom: 12px;
 }
@@ -1602,12 +1656,14 @@ a {
 .settings-card-header h2 {
   margin: 0;
   font-size: 17px;
+  font-weight: 700;
 }
 
 .settings-desc {
   color: var(--text-muted);
   font-size: 13px;
   margin: 0 0 12px;
+  line-height: 1.5;
 }
 
 .settings-form {
@@ -1631,11 +1687,20 @@ a {
   padding: 9px 12px;
   border-radius: 8px;
   font-size: 14px;
+  transition: border-color 0.15s ease;
+}
+
+.settings-form input:focus {
+  outline: none;
+  border-color: var(--accent-2);
 }
 
 .settings-error {
   color: #ff6961;
   font-size: 13px;
+  background: rgba(255, 105, 97, 0.1);
+  border-radius: 8px;
+  padding: 8px 10px;
 }
 
 .settings-actions {

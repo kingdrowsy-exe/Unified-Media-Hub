@@ -25,14 +25,14 @@ export default function App() {
           <img src="/logo.svg" alt="" width={32} height={32} />
         </NavLink>
         <div className="nav-inner">
+          <NavLink to="/live" className={({ isActive }) => (isActive ? "active" : "")}>
+            Live TV
+          </NavLink>
           <NavLink to="/ondemand" className={({ isActive }) => (isActive ? "active" : "")}>
             On Demand
           </NavLink>
           <NavLink to="/search" className={({ isActive }) => (isActive ? "active" : "")}>
             Search
-          </NavLink>
-          <NavLink to="/live" className={({ isActive }) => (isActive ? "active" : "")}>
-            Live TV
           </NavLink>
         </div>
         <NavLink
