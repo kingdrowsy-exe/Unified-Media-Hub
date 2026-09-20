@@ -33,6 +33,8 @@ type TraktLinkState =
 const PLEX_LINK_TIMEOUT_MS = 10 * 60 * 1000;
 const TRAKT_LINK_TIMEOUT_MS = 10 * 60 * 1000;
 
+type CategoryId = "servers" | "livetv" | "metadata";
+
 function CredentialForm({
   title,
   description,
@@ -212,8 +214,57 @@ function TestConnectionButton({ service }: { service: "plex" | "silo" | "emby" |
   );
 }
 
+function SettingsRow({
+  letter,
+  color,
+  name,
+  subtitle,
+  connected,
+  expanded,
+  onToggle,
+  children,
+}: {
+  letter: string;
+  color: string;
+  name: string;
+  subtitle: string;
+  connected: boolean;
+  expanded: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={`settings-row ${expanded ? "expanded" : ""}`}>
+      <button type="button" className="settings-row-header" onClick={onToggle}>
+        <span className="settings-row-icon" style={{ background: color }}>
+          {letter}
+        </span>
+        <span className="settings-row-title">
+          <span className="settings-row-name">{name}</span>
+          <span className={`settings-row-subtitle ${connected ? "is-connected" : ""}`}>
+            {connected && <span className="status-dot" />}
+            {subtitle}
+          </span>
+        </span>
+        <svg className="settings-row-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {expanded && <div className="settings-row-body">{children}</div>}
+    </div>
+  );
+}
+
+const CATEGORIES: { id: CategoryId; label: string }[] = [
+  { id: "servers", label: "Media Servers" },
+  { id: "livetv", label: "Live TV" },
+  { id: "metadata", label: "Metadata & Ratings" },
+];
+
 export default function Settings() {
   const [status, setStatus] = useState<SettingsStatus | null>(null);
+  const [category, setCategory] = useState<CategoryId>("servers");
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [plexLink, setPlexLink] = useState<PlexLinkState>({ phase: "idle" });
   const [traktLink, setTraktLink] = useState<TraktLinkState>({ phase: "idle" });
   const plexPollRef = useRef<number | null>(null);
@@ -230,6 +281,10 @@ export default function Settings() {
       if (traktPollRef.current) window.clearInterval(traktPollRef.current);
     };
   }, []);
+
+  function toggle(id: string) {
+    setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
+  }
 
   async function beginPlexLink() {
     setPlexLink({ phase: "waiting", code: "", pinId: 0 });
@@ -299,6 +354,12 @@ export default function Settings() {
     return <div className="page status">Loading settings…</div>;
   }
 
+  const counts: Record<CategoryId, { connected: number; total: number }> = {
+    servers: { connected: [status.plex, status.silo, status.emby].filter(Boolean).length, total: 3 },
+    livetv: { connected: status.xtream ? 1 : 0, total: 1 },
+    metadata: { connected: [status.tmdb, status.trakt].filter(Boolean).length, total: 2 },
+  };
+
   return (
     <div className="page settings-page">
       <div className="settings-hero">
@@ -306,236 +367,263 @@ export default function Settings() {
         <p className="settings-subheading">Connect your media servers, IPTV provider, and metadata sources.</p>
       </div>
 
-      <div className="settings-group">
-        <h3 className="settings-group-title">Media Servers</h3>
-
-      <section className="settings-card settings-card-plex">
-        <div className="settings-card-header">
-          <h2>Plex</h2>
-          {status.plex && <span className="badge connected">Connected{status.plexServerName ? ` · ${status.plexServerName}` : ""}</span>}
-        </div>
-        {status.plex ? (
-          <div className="settings-actions">
-            <TestConnectionButton service="plex" />
-            <button className="secondary" onClick={() => disconnectPlex().then(refreshStatus)}>
-              Disconnect
+      <div className="settings-shell">
+        <nav className="settings-nav">
+          {CATEGORIES.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              className={`settings-nav-item ${category === c.id ? "active" : ""}`}
+              onClick={() => setCategory(c.id)}
+            >
+              <span>{c.label}</span>
+              <span className="settings-nav-count">
+                {counts[c.id].connected}/{counts[c.id].total}
+              </span>
             </button>
-          </div>
-        ) : plexLink.phase === "waiting" ? (
-          <div className="plex-link">
-            {plexLink.code ? (
-              <>
-                <p>
-                  1. Open <a href="https://plex.tv/link" target="_blank" rel="noreferrer">plex.tv/link</a>
-                </p>
-                <p>
-                  2. Enter this code: <strong className="link-code">{plexLink.code}</strong>
-                </p>
-                <p className="settings-desc">Waiting for you to authorize…</p>
-              </>
-            ) : (
-              <p className="settings-desc">Starting link request…</p>
-            )}
-          </div>
-        ) : (
-          <>
-            <p className="settings-desc">
-              Connect your Plex account — no token to copy, just link it like any other Plex app.
-            </p>
-            <button onClick={beginPlexLink}>Link Plex Account</button>
-          </>
-        )}
-        {plexLink.phase === "error" && <div className="settings-error">{plexLink.message}</div>}
-      </section>
+          ))}
+        </nav>
 
-      <section className="settings-card settings-card-silo">
-        <div className="settings-card-header">
-          <h2>Silo</h2>
-          {status.silo && <span className="badge connected">Connected</span>}
-        </div>
-        {status.silo ? (
-          <>
-            <p className="settings-desc">
-              {status.siloBaseUrl ? `${status.siloBaseUrl} · ` : ""}
-              Movies from Silo appear in On Demand. TV shows aren't supported yet.
-            </p>
-            <div className="settings-actions">
-              <TestConnectionButton service="silo" />
-              <button className="secondary" onClick={() => disconnectSilo().then(refreshStatus)}>
-                Disconnect
-              </button>
-            </div>
-          </>
-        ) : (
-          <CredentialForm
-            title="Silo"
-            description="Log in with your Silo (Jellyfin/Emby-compatible) account."
-            onSubmit={async (baseUrl, username, password) => {
-              await saveSilo(baseUrl, username, password);
-              refreshStatus();
-            }}
-          />
-        )}
-      </section>
-
-      <section className="settings-card settings-card-emby">
-        <div className="settings-card-header">
-          <h2>Emby</h2>
-          {status.emby && <span className="badge connected">Connected</span>}
-        </div>
-        {status.emby ? (
-          <>
-            {status.embyBaseUrl && <p className="settings-desc">{status.embyBaseUrl}</p>}
-            <div className="settings-actions">
-              <TestConnectionButton service="emby" />
-              <button className="secondary" onClick={() => disconnectEmby().then(refreshStatus)}>
-                Disconnect
-              </button>
-            </div>
-          </>
-        ) : (
-          <CredentialForm
-            title="Emby"
-            description="Log in with your Emby account."
-            onSubmit={async (baseUrl, username, password) => {
-              await saveEmby(baseUrl, username, password);
-              refreshStatus();
-            }}
-          />
-        )}
-      </section>
-      </div>
-
-      <div className="settings-group">
-        <h3 className="settings-group-title">Live TV</h3>
-
-      <section className="settings-card settings-card-xtream">
-        <div className="settings-card-header">
-          <h2>Xtream Codes IPTV</h2>
-          {status.xtream && <span className="badge connected">Connected</span>}
-        </div>
-        {status.xtream ? (
-          <>
-            {status.xtreamBaseUrl && <p className="settings-desc">{status.xtreamBaseUrl}</p>}
-            <div className="settings-actions">
-              <TestConnectionButton service="xtream" />
-              <button className="secondary" onClick={() => disconnectXtream().then(refreshStatus)}>
-                Disconnect
-              </button>
-            </div>
-          </>
-        ) : (
-          <CredentialForm
-            title="Xtream Codes"
-            description="Log in with the credentials your IPTV provider gave you."
-            onSubmit={async (baseUrl, username, password) => {
-              await saveXtream(baseUrl, username, password);
-              refreshStatus();
-            }}
-          />
-        )}
-      </section>
-      </div>
-
-      <div className="settings-group">
-        <h3 className="settings-group-title">Metadata &amp; Ratings</h3>
-
-      <section className="settings-card settings-card-tmdb">
-        <div className="settings-card-header">
-          <h2>TMDB</h2>
-          {status.tmdb && <span className="badge connected">Connected</span>}
-        </div>
-        {status.tmdb ? (
-          <>
-            <p className="settings-desc">Powers the Popular Movies and Popular Shows shelves on On Demand.</p>
-            <div className="settings-actions">
-              <TestConnectionButton service="tmdb" />
-              <button className="secondary" onClick={() => disconnectTmdb().then(refreshStatus)}>
-                Disconnect
-              </button>
-            </div>
-          </>
-        ) : (
-          <TokenForm
-            description="Paste your TMDB API Read Access Token (free at themoviedb.org/settings/api) to power the Popular Movies and Popular Shows shelves."
-            placeholder="eyJhbGciOi..."
-            buttonLabel="Connect TMDB"
-            onSubmit={async (token) => {
-              await saveTmdb(token);
-              refreshStatus();
-            }}
-          />
-        )}
-      </section>
-
-      <section className="settings-card settings-card-trakt">
-        <div className="settings-card-header">
-          <h2>Trakt</h2>
-          {status.trakt && <span className="badge connected">Connected</span>}
-          {!status.trakt && status.traktConfigured && <span className="badge">Not linked</span>}
-        </div>
-        {status.trakt ? (
-          <>
-            <p className="settings-desc">
-              Adds Trakt ratings and reviews to the detail page, plus your Watchlist and personal
-              recommendations as shelves on On Demand.
-            </p>
-            <div className="settings-actions">
-              <TestConnectionButton service="trakt" />
-              <button
-                className="secondary"
-                onClick={() => disconnectTrakt().then(refreshStatus)}
-              >
-                Disconnect
-              </button>
-            </div>
-          </>
-        ) : status.traktConfigured ? (
-          traktLink.phase === "waiting" ? (
-            <div className="plex-link">
-              {traktLink.userCode ? (
-                <>
-                  <p>
-                    1. Open{" "}
-                    <a href={traktLink.verificationUrl || "https://trakt.tv/activate"} target="_blank" rel="noreferrer">
-                      {traktLink.verificationUrl || "trakt.tv/activate"}
-                    </a>
-                  </p>
-                  <p>
-                    2. Enter this code: <strong className="link-code">{traktLink.userCode}</strong>
-                  </p>
-                  <p className="settings-desc">Waiting for you to authorize…</p>
-                </>
-              ) : (
-                <p className="settings-desc">Starting link request…</p>
-              )}
-            </div>
-          ) : (
+        <div className="settings-content">
+          {category === "servers" && (
             <>
-              <p className="settings-desc">Client ID and Secret saved. Now link your Trakt account.</p>
-              <button onClick={beginTraktLink}>Link Trakt Account</button>
-              <button
-                className="secondary"
-                onClick={() => disconnectTrakt().then(refreshStatus)}
-                style={{ marginLeft: 10 }}
+              <SettingsRow
+                letter="P"
+                color="var(--plex-color)"
+                name="Plex"
+                subtitle={status.plex ? status.plexServerName ?? "Connected" : "Not connected"}
+                connected={status.plex}
+                expanded={!!expanded.plex || plexLink.phase !== "idle"}
+                onToggle={() => toggle("plex")}
               >
-                Start Over
-              </button>
+                {status.plex ? (
+                  <div className="settings-actions">
+                    <TestConnectionButton service="plex" />
+                    <button className="secondary" onClick={() => disconnectPlex().then(refreshStatus)}>
+                      Disconnect
+                    </button>
+                  </div>
+                ) : plexLink.phase === "waiting" ? (
+                  <div className="plex-link">
+                    {plexLink.code ? (
+                      <>
+                        <p>
+                          1. Open <a href="https://plex.tv/link" target="_blank" rel="noreferrer">plex.tv/link</a>
+                        </p>
+                        <p>
+                          2. Enter this code: <strong className="link-code">{plexLink.code}</strong>
+                        </p>
+                        <p className="settings-desc">Waiting for you to authorize…</p>
+                      </>
+                    ) : (
+                      <p className="settings-desc">Starting link request…</p>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    <p className="settings-desc">
+                      Connect your Plex account — no token to copy, just link it like any other Plex app.
+                    </p>
+                    <button onClick={beginPlexLink}>Link Plex Account</button>
+                  </>
+                )}
+                {plexLink.phase === "error" && <div className="settings-error">{plexLink.message}</div>}
+              </SettingsRow>
+
+              <SettingsRow
+                letter="S"
+                color="var(--silo-color)"
+                name="Silo"
+                subtitle={status.silo ? status.siloBaseUrl ?? "Connected" : "Not connected"}
+                connected={status.silo}
+                expanded={!!expanded.silo}
+                onToggle={() => toggle("silo")}
+              >
+                {status.silo ? (
+                  <>
+                    <p className="settings-desc">Movies from Silo appear in On Demand. TV shows aren't supported yet.</p>
+                    <div className="settings-actions">
+                      <TestConnectionButton service="silo" />
+                      <button className="secondary" onClick={() => disconnectSilo().then(refreshStatus)}>
+                        Disconnect
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <CredentialForm
+                    title="Silo"
+                    description="Log in with your Silo (Jellyfin/Emby-compatible) account."
+                    onSubmit={async (baseUrl, username, password) => {
+                      await saveSilo(baseUrl, username, password);
+                      refreshStatus();
+                    }}
+                  />
+                )}
+              </SettingsRow>
+
+              <SettingsRow
+                letter="E"
+                color="var(--emby-color)"
+                name="Emby"
+                subtitle={status.emby ? status.embyBaseUrl ?? "Connected" : "Not connected"}
+                connected={status.emby}
+                expanded={!!expanded.emby}
+                onToggle={() => toggle("emby")}
+              >
+                {status.emby ? (
+                  <div className="settings-actions">
+                    <TestConnectionButton service="emby" />
+                    <button className="secondary" onClick={() => disconnectEmby().then(refreshStatus)}>
+                      Disconnect
+                    </button>
+                  </div>
+                ) : (
+                  <CredentialForm
+                    title="Emby"
+                    description="Log in with your Emby account."
+                    onSubmit={async (baseUrl, username, password) => {
+                      await saveEmby(baseUrl, username, password);
+                      refreshStatus();
+                    }}
+                  />
+                )}
+              </SettingsRow>
             </>
-          )
-        ) : (
-          <ClientCredentialForm
-            description={
-              "Register a free API app at trakt.tv/oauth/applications (redirect URI urn:ietf:wg:oauth:2.0:oob), then paste its Client ID and Secret here."
-            }
-            onSubmit={async (clientId, clientSecret) => {
-              await saveTrakt(clientId, clientSecret);
-              refreshStatus();
-            }}
-          />
-        )}
-        {traktLink.phase === "error" && <div className="settings-error">{traktLink.message}</div>}
-      </section>
+          )}
+
+          {category === "livetv" && (
+            <SettingsRow
+              letter="X"
+              color="var(--accent-2)"
+              name="Xtream Codes IPTV"
+              subtitle={status.xtream ? status.xtreamBaseUrl ?? "Connected" : "Not connected"}
+              connected={status.xtream}
+              expanded={!!expanded.xtream}
+              onToggle={() => toggle("xtream")}
+            >
+              {status.xtream ? (
+                <div className="settings-actions">
+                  <TestConnectionButton service="xtream" />
+                  <button className="secondary" onClick={() => disconnectXtream().then(refreshStatus)}>
+                    Disconnect
+                  </button>
+                </div>
+              ) : (
+                <CredentialForm
+                  title="Xtream Codes"
+                  description="Log in with the credentials your IPTV provider gave you."
+                  onSubmit={async (baseUrl, username, password) => {
+                    await saveXtream(baseUrl, username, password);
+                    refreshStatus();
+                  }}
+                />
+              )}
+            </SettingsRow>
+          )}
+
+          {category === "metadata" && (
+            <>
+              <SettingsRow
+                letter="T"
+                color="#01d277"
+                name="TMDB"
+                subtitle={status.tmdb ? "Connected" : "Not connected"}
+                connected={status.tmdb}
+                expanded={!!expanded.tmdb}
+                onToggle={() => toggle("tmdb")}
+              >
+                {status.tmdb ? (
+                  <>
+                    <p className="settings-desc">Powers the Popular Movies and Popular Shows shelves on On Demand.</p>
+                    <div className="settings-actions">
+                      <TestConnectionButton service="tmdb" />
+                      <button className="secondary" onClick={() => disconnectTmdb().then(refreshStatus)}>
+                        Disconnect
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <TokenForm
+                    description="Paste your TMDB API Read Access Token (free at themoviedb.org/settings/api) to power the Popular Movies and Popular Shows shelves."
+                    placeholder="eyJhbGciOi..."
+                    buttonLabel="Connect TMDB"
+                    onSubmit={async (token) => {
+                      await saveTmdb(token);
+                      refreshStatus();
+                    }}
+                  />
+                )}
+              </SettingsRow>
+
+              <SettingsRow
+                letter="T"
+                color="#ed1c24"
+                name="Trakt"
+                subtitle={status.trakt ? "Connected" : status.traktConfigured ? "Not linked" : "Not connected"}
+                connected={status.trakt}
+                expanded={!!expanded.trakt || traktLink.phase !== "idle"}
+                onToggle={() => toggle("trakt")}
+              >
+                {status.trakt ? (
+                  <>
+                    <p className="settings-desc">
+                      Adds Trakt ratings and reviews to the detail page, plus your Watchlist and personal
+                      recommendations as shelves on On Demand.
+                    </p>
+                    <div className="settings-actions">
+                      <TestConnectionButton service="trakt" />
+                      <button className="secondary" onClick={() => disconnectTrakt().then(refreshStatus)}>
+                        Disconnect
+                      </button>
+                    </div>
+                  </>
+                ) : status.traktConfigured ? (
+                  traktLink.phase === "waiting" ? (
+                    <div className="plex-link">
+                      {traktLink.userCode ? (
+                        <>
+                          <p>
+                            1. Open{" "}
+                            <a href={traktLink.verificationUrl || "https://trakt.tv/activate"} target="_blank" rel="noreferrer">
+                              {traktLink.verificationUrl || "trakt.tv/activate"}
+                            </a>
+                          </p>
+                          <p>
+                            2. Enter this code: <strong className="link-code">{traktLink.userCode}</strong>
+                          </p>
+                          <p className="settings-desc">Waiting for you to authorize…</p>
+                        </>
+                      ) : (
+                        <p className="settings-desc">Starting link request…</p>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      <p className="settings-desc">Client ID and Secret saved. Now link your Trakt account.</p>
+                      <div className="settings-actions">
+                        <button onClick={beginTraktLink}>Link Trakt Account</button>
+                        <button className="secondary" onClick={() => disconnectTrakt().then(refreshStatus)}>
+                          Start Over
+                        </button>
+                      </div>
+                    </>
+                  )
+                ) : (
+                  <ClientCredentialForm
+                    description={
+                      "Register a free API app at trakt.tv/oauth/applications (redirect URI urn:ietf:wg:oauth:2.0:oob), then paste its Client ID and Secret here."
+                    }
+                    onSubmit={async (clientId, clientSecret) => {
+                      await saveTrakt(clientId, clientSecret);
+                      refreshStatus();
+                    }}
+                  />
+                )}
+                {traktLink.phase === "error" && <div className="settings-error">{traktLink.message}</div>}
+              </SettingsRow>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
