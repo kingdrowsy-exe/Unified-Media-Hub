@@ -1,21 +1,21 @@
 # Unified Media Hub (Windows App)
 
-An installable Windows desktop build of [Unified Media Hub](https://github.com/kingdrowsy-exe/Unified-Media-Player) —
-the same Plex + Silo + Xtream Codes aggregator, packaged as a real `.exe` installer via
-Electron instead of something you run from a terminal.
+An installable Windows desktop build of Unified Media Hub — the same Plex + Silo + Emby +
+Xtream Codes aggregator, packaged as a real `.exe` installer via Electron instead of
+something you run from a terminal.
 
 Unlike the web-app version, this bundles Node.js itself, so people installing it don't
 need Node installed first. It shows up in the Start Menu and Add/Remove Programs like any
 other app, and runs in its own window instead of a browser tab.
 
-Everyone who installs it uses their **own** Plex/Silo/Xtream/TMDB/Trakt accounts — nothing
+Everyone who installs it uses their **own** Plex/Silo/Emby/Xtream/TMDB/Trakt accounts — nothing
 is shared between installs, and credentials are stored locally on each person's own machine
 (in Electron's per-user app-data folder), never anywhere else. No key or credential of any
 kind is bundled into this app or this repo.
 
 ## Download
 
-**[⬇ Download the installer](https://github.com/kingdrowsy-exe/Unified-Media-Hub-v2/releases/latest)**
+**[⬇ Download the installer](https://github.com/kingdrowsy-exe/Unified-Media-Hub/releases/latest)**
 — grab the `.exe` from the latest release, run it, and log into Settings with your own
 accounts. No Node.js, no terminal, no cloning this repo required.
 
@@ -25,6 +25,7 @@ The app opens on **Settings**. Log in with your own:
 
 - **Plex** — click "Link Plex Account," enter the code at plex.tv/link. No token to copy.
 - **Silo** — your Silo username and password.
+- **Emby** — your Emby server URL + username and password.
 - **Xtream Codes** — the server URL + username + password your IPTV provider gave you.
 - **TMDB** (optional, powers the Popular Movies/Shows shelves) — free, takes under a
   minute: create an account at [themoviedb.org](https://www.themoviedb.org), then go to
