@@ -12,7 +12,7 @@ export default function App() {
   useEffect(() => {
     fetchSettingsStatus()
       .then((status) => {
-        const anyConfigured = status.plex || status.silo || status.xtream;
+        const anyConfigured = status.plex || status.silo || status.emby || status.xtream;
         setDefaultRoute(anyConfigured ? "/ondemand" : "/settings");
       })
       .catch(() => setDefaultRoute("/ondemand"));

@@ -10,6 +10,7 @@
   --accent-gradient: linear-gradient(135deg, var(--accent-2), var(--accent));
   --plex-color: #e5a00d;
   --silo-color: #2dd4bf;
+  --emby-color: #52b54b;
   --gold: #f5c518;
   --ambient-glow: radial-gradient(ellipse 1150px 780px at 6% -12%, rgba(139, 92, 246, 0.32), transparent 58%),
     radial-gradient(ellipse 1150px 880px at 98% -8%, rgba(10, 132, 255, 0.26), transparent 58%),
@@ -696,6 +697,11 @@ a {
 .badge-silo {
   background: rgba(45, 212, 191, 0.18);
   color: var(--silo-color);
+}
+
+.badge-emby {
+  background: rgba(82, 181, 75, 0.18);
+  color: var(--emby-color);
 }
 
 .badge.connected {
@@ -1568,6 +1574,10 @@ a {
 
 .settings-card-silo {
   border-left-color: var(--silo-color);
+}
+
+.settings-card-emby {
+  border-left-color: var(--emby-color);
 }
 
 .settings-card-xtream {

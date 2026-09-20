@@ -1,17 +1,19 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { MergedItem, PopularItem, fetchOnDemand } from "../api.js";
+import { MergedItem, PopularItem, Source, fetchOnDemand } from "../api.js";
 import MovieDetail from "../components/MovieDetail.js";
 import Tile from "../components/Tile.js";
 
-type SourceFilter = "all" | "plex" | "silo";
+type SourceFilter = "all" | Source;
 type Playable = MergedItem | PopularItem;
+
+const SOURCE_LABELS: Record<Source, string> = { plex: "Plex", silo: "Silo", emby: "Emby" };
 
 export default function Search() {
   const [query, setQuery] = useState("");
   const [source, setSource] = useState<SourceFilter>("all");
   const [items, setItems] = useState<MergedItem[]>([]);
-  const [sources, setSources] = useState<{ plex: boolean; silo: boolean } | null>(null);
+  const [sources, setSources] = useState<{ plex: boolean; silo: boolean; emby: boolean } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<Playable | null>(null);
@@ -44,7 +46,8 @@ export default function Search() {
     setSelectedItem({ id: `tmdb:${type}:${tmdbId}`, title: "", type, sources: [] });
   }
 
-  const noSourcesConnected = sources && !sources.plex && !sources.silo;
+  const noSourcesConnected = sources && !sources.plex && !sources.silo && !sources.emby;
+  const missingSources = sources ? (["plex", "silo", "emby"] as const).filter((s) => !sources[s]) : [];
 
   return (
     <div className="page search-page">
@@ -58,7 +61,7 @@ export default function Search() {
           <input
             type="text"
             autoFocus
-            placeholder="Search movies and shows across Plex and Silo…"
+            placeholder="Search movies and shows across Plex, Silo, and Emby…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -71,34 +74,32 @@ export default function Search() {
 
         {hasQuery && (
           <div className="search-filters">
-            {(["all", "plex", "silo"] as const).map((s) => (
+            {(["all", "plex", "silo", "emby"] as const).map((s) => (
               <span key={s} className={`chip ${source === s ? "active" : ""}`} onClick={() => setSource(s)}>
-                {s === "all" ? "All" : s === "plex" ? "Plex" : "Silo"}
+                {s === "all" ? "All" : SOURCE_LABELS[s]}
               </span>
             ))}
           </div>
         )}
       </div>
 
-      {hasQuery && sources && !sources.plex && sources.silo && (
+      {hasQuery && !noSourcesConnected && missingSources.length > 0 && (
         <div className="notice">
-          Plex isn't connected yet — showing Silo only. <Link to="/settings">Connect Plex</Link>
-        </div>
-      )}
-      {hasQuery && sources && !sources.silo && sources.plex && (
-        <div className="notice">
-          Silo isn't connected yet — showing Plex only. <Link to="/settings">Connect Silo</Link>
+          {missingSources.map((s) => SOURCE_LABELS[s]).join(" and ")}{" "}
+          {missingSources.length > 1 ? "aren't" : "isn't"} connected yet — showing{" "}
+          {(["plex", "silo", "emby"] as const).filter((s) => !missingSources.includes(s)).map((s) => SOURCE_LABELS[s]).join(" and ")}{" "}
+          only. <Link to="/settings">Go to Settings</Link>
         </div>
       )}
 
-      {!hasQuery && <div className="status">Start typing to search your Plex and Silo libraries.</div>}
+      {!hasQuery && <div className="status">Start typing to search your Plex, Silo, and Emby libraries.</div>}
 
       {hasQuery && loading && <div className="status">Searching…</div>}
       {hasQuery && !loading && error && <div className="status">Search failed: {error}</div>}
 
       {hasQuery && !loading && !error && noSourcesConnected && (
         <div className="status">
-          Neither Plex nor Silo is connected yet.
+          Plex, Silo, and Emby aren't connected yet.
           <br />
           <Link to="/settings">Go to Settings</Link> to connect one.
         </div>

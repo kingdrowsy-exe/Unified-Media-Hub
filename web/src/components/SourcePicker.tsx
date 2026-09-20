@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { SourceVersion } from "../api.js";
+import { Source, SourceVersion } from "../api.js";
 
 interface SourcePickerProps {
   title: string;
@@ -14,7 +14,9 @@ function formatSize(bytes?: number): string {
   return gb >= 1 ? `${gb.toFixed(2)} GB` : `${(bytes / (1024 * 1024)).toFixed(0)} MB`;
 }
 
-type SourceFilter = "all" | "plex" | "silo";
+type SourceFilter = "all" | Source;
+
+const SOURCE_LABELS: Record<Source, string> = { plex: "Plex", silo: "Silo", emby: "Emby" };
 
 export default function SourcePicker({ title, versions, onSelect, onClose }: SourcePickerProps) {
   const [filter, setFilter] = useState<SourceFilter>("all");
@@ -57,7 +59,7 @@ export default function SourcePicker({ title, versions, onSelect, onClose }: Sou
                 className={`chip ${filter === f ? "active" : ""}`}
                 onClick={() => setFilter(f)}
               >
-                {f === "all" ? "All" : f === "plex" ? "Plex" : "Silo"}
+                {f === "all" ? "All" : SOURCE_LABELS[f]}
               </span>
             ))}
           </div>

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   SettingsStatus,
+  disconnectEmby,
   disconnectPlex,
   disconnectSilo,
   disconnectTmdb,
@@ -9,6 +10,7 @@ import {
   fetchSettingsStatus,
   pollPlexLink,
   pollTraktLink,
+  saveEmby,
   saveSilo,
   saveTmdb,
   saveTrakt,
@@ -180,7 +182,7 @@ function ClientCredentialForm({
   );
 }
 
-function TestConnectionButton({ service }: { service: "plex" | "silo" | "xtream" | "tmdb" | "trakt" }) {
+function TestConnectionButton({ service }: { service: "plex" | "silo" | "emby" | "xtream" | "tmdb" | "trakt" }) {
   const [state, setState] = useState<"idle" | "testing" | "ok" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
   const resetRef = useRef<number | null>(null);
@@ -362,6 +364,33 @@ export default function Settings() {
             description="Log in with your Silo (Jellyfin/Emby-compatible) account."
             onSubmit={async (baseUrl, username, password) => {
               await saveSilo(baseUrl, username, password);
+              refreshStatus();
+            }}
+          />
+        )}
+      </section>
+
+      <section className="settings-card settings-card-emby">
+        <div className="settings-card-header">
+          <h2>Emby</h2>
+          {status.emby && <span className="badge connected">Connected</span>}
+        </div>
+        {status.emby ? (
+          <>
+            {status.embyBaseUrl && <p className="settings-desc">{status.embyBaseUrl}</p>}
+            <div className="settings-actions">
+              <TestConnectionButton service="emby" />
+              <button className="secondary" onClick={() => disconnectEmby().then(refreshStatus)}>
+                Disconnect
+              </button>
+            </div>
+          </>
+        ) : (
+          <CredentialForm
+            title="Emby"
+            description="Log in with your Emby account."
+            onSubmit={async (baseUrl, username, password) => {
+              await saveEmby(baseUrl, username, password);
               refreshStatus();
             }}
           />

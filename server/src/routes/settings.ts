@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { settingsStore } from "../settingsStore.js";
 import { checkPin, createPin, resolveServerFromAuthToken } from "../clients/plexLink.js";
 import { resetSiloSession } from "../clients/silo.js";
+import { resetEmbySession } from "../clients/emby.js";
 import {
   createDeviceCode,
   pollDeviceToken,
@@ -38,6 +39,26 @@ async function validateSilo(baseUrl: string, username: string, password: string)
   const data = (await res.json()) as { access_token?: string };
   if (!data.access_token) {
     throw new Error("Silo login failed. The server responded but did not return an access token.");
+  }
+}
+
+async function validateEmby(baseUrl: string, username: string, password: string) {
+  const res = await fetch(`${baseUrl.replace(/\/+$/, "")}/Users/AuthenticateByName`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "X-Emby-Authorization":
+        'MediaBrowser Client="Unified Media Hub", Device="Unified Media Hub", DeviceId="unified-media-hub", Version="0.1.0"',
+    },
+    body: JSON.stringify({ Username: username, Pw: password }),
+  });
+  if (!res.ok) {
+    throw new Error(`Emby login failed (${res.status}). Check the server URL and credentials.`);
+  }
+  const data = (await res.json()) as { AccessToken?: string };
+  if (!data.AccessToken) {
+    throw new Error("Emby login failed. The server responded but did not return an access token.");
   }
 }
 
@@ -96,6 +117,38 @@ export async function settingsRoutes(app: FastifyInstance) {
   app.delete("/api/settings/silo", async () => {
     settingsStore.clearSilo();
     resetSiloSession();
+    bustCache("ondemand:");
+    bustCache("popular:");
+    bustCache("trakt:");
+    return { ok: true };
+  });
+
+  app.post("/api/settings/emby", async (request, reply) => {
+    const { baseUrl, username, password } = request.body as {
+      baseUrl?: string;
+      username?: string;
+      password?: string;
+    };
+    if (!baseUrl || !username || !password) {
+      return reply.code(400).send({ error: "baseUrl, username, and password are required" });
+    }
+    const cleanBaseUrl = baseUrl.replace(/\/+$/, "");
+    try {
+      await validateEmby(cleanBaseUrl, username, password);
+    } catch (err) {
+      return reply.code(400).send({ error: (err as Error).message });
+    }
+    settingsStore.setEmby({ baseUrl: cleanBaseUrl, username, password });
+    resetEmbySession();
+    bustCache("ondemand:");
+    bustCache("popular:");
+    bustCache("trakt:");
+    return { ok: true };
+  });
+
+  app.delete("/api/settings/emby", async () => {
+    settingsStore.clearEmby();
+    resetEmbySession();
     bustCache("ondemand:");
     bustCache("popular:");
     bustCache("trakt:");
@@ -267,6 +320,12 @@ export async function settingsRoutes(app: FastifyInstance) {
           const silo = settingsStore.getSilo();
           if (!silo) return reply.code(409).send({ error: "Silo isn't connected" });
           await validateSilo(silo.baseUrl, silo.username, silo.password);
+          return { ok: true };
+        }
+        case "emby": {
+          const emby = settingsStore.getEmby();
+          if (!emby) return reply.code(409).send({ error: "Emby isn't connected" });
+          await validateEmby(emby.baseUrl, emby.username, emby.password);
           return { ok: true };
         }
         case "xtream": {

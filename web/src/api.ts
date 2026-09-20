@@ -1,13 +1,15 @@
+export type Source = "plex" | "silo" | "emby";
+
 export interface MergedItem {
   id: string;
-  source: "plex" | "silo";
+  source: Source;
   title: string;
   year?: number;
   type: "movie" | "show";
   poster?: string;
   genre?: string;
   ratingPercent?: number;
-  sources: { source: "plex" | "silo"; id: string }[];
+  sources: { source: Source; id: string }[];
 }
 
 export interface Channel {
@@ -28,12 +30,14 @@ export interface EpgListing {
 export interface SettingsStatus {
   plex: boolean;
   silo: boolean;
+  emby: boolean;
   xtream: boolean;
   tmdb: boolean;
   trakt: boolean;
   traktConfigured: boolean;
   plexServerName?: string;
   siloBaseUrl?: string;
+  embyBaseUrl?: string;
   xtreamBaseUrl?: string;
 }
 
@@ -46,7 +50,7 @@ export interface PopularItem {
   backdrop?: string;
   genre?: string;
   ratingPercent?: number;
-  sources: { source: "plex" | "silo"; id: string }[];
+  sources: { source: Source; id: string }[];
 }
 
 export class ApiError extends Error {
@@ -96,7 +100,7 @@ async function deleteJson<T>(url: string): Promise<T> {
 
 export function fetchOnDemand(
   params: { search?: string; source?: string },
-): Promise<{ items: MergedItem[]; sources: { plex: boolean; silo: boolean } }> {
+): Promise<{ items: MergedItem[]; sources: { plex: boolean; silo: boolean; emby: boolean } }> {
   const url = new URL("/api/ondemand", window.location.origin);
   if (params.search) url.searchParams.set("search", params.search);
   if (params.source) url.searchParams.set("source", params.source);
@@ -113,7 +117,7 @@ export function fetchEpg(streamId: number): Promise<{ listings: EpgListing[] }> 
   return getJson(url.toString());
 }
 
-export function streamUrlFor(source: "plex" | "silo" | "live", id: string | number): string {
+export function streamUrlFor(source: Source | "live", id: string | number): string {
   return `/api/stream/${source}/${id}`;
 }
 
@@ -166,7 +170,7 @@ export interface TmdbDetails {
 }
 
 export interface SourceVersion {
-  source: "plex" | "silo";
+  source: Source;
   id: string;
   serverName: string;
   filename?: string;
@@ -206,7 +210,7 @@ export function fetchSources(title: string, year?: number): Promise<{ versions: 
 export function fetchMatch(
   title: string,
   year?: number,
-): Promise<{ sources: { source: "plex" | "silo"; id: string }[] }> {
+): Promise<{ sources: { source: Source; id: string }[] }> {
   const url = new URL("/api/match", window.location.origin);
   url.searchParams.set("title", title);
   if (year) url.searchParams.set("year", String(year));
@@ -223,6 +227,14 @@ export function disconnectTmdb(): Promise<{ ok: true }> {
 
 export function saveSilo(baseUrl: string, username: string, password: string): Promise<{ ok: true }> {
   return postJson("/api/settings/silo", { baseUrl, username, password });
+}
+
+export function saveEmby(baseUrl: string, username: string, password: string): Promise<{ ok: true }> {
+  return postJson("/api/settings/emby", { baseUrl, username, password });
+}
+
+export function disconnectEmby(): Promise<{ ok: true }> {
+  return deleteJson("/api/settings/emby");
 }
 
 export function saveXtream(baseUrl: string, username: string, password: string): Promise<{ ok: true }> {
@@ -272,7 +284,7 @@ export function pollTraktLink(): Promise<{ linked: boolean }> {
   return getJson("/api/settings/trakt/link/status");
 }
 
-export function testConnection(service: "plex" | "silo" | "xtream" | "tmdb" | "trakt"): Promise<{ ok: true }> {
+export function testConnection(service: Source | "xtream" | "tmdb" | "trakt"): Promise<{ ok: true }> {
   return postJson(`/api/settings/${service}/test`);
 }
 
