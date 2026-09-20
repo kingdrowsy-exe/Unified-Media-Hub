@@ -25,6 +25,7 @@ export default function OnDemand() {
   const [watchlist, setWatchlist] = useState<PopularItem[]>([]);
   const [recommendations, setRecommendations] = useState<PopularItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<PopularItem | null>(null);
+  const [expandedShelf, setExpandedShelf] = useState<{ title: string; items: PopularItem[] } | null>(null);
 
   useEffect(() => {
     fetchPopular()
@@ -88,10 +89,40 @@ export default function OnDemand() {
         </div>
       )}
 
-      {watchlist.length > 0 && <Shelf title="Your Trakt Watchlist">{watchlist.map(renderTile)}</Shelf>}
-      {recommendations.length > 0 && <Shelf title="Recommended for You">{recommendations.map(renderTile)}</Shelf>}
-      {popularMovies.length > 0 && <Shelf title="Popular Movies">{popularMovies.map(renderTile)}</Shelf>}
-      {popularShows.length > 0 && <Shelf title="Popular Shows">{popularShows.map(renderTile)}</Shelf>}
+      {watchlist.length > 0 && (
+        <Shelf title="Your Trakt Watchlist" onTitleClick={() => setExpandedShelf({ title: "Your Trakt Watchlist", items: watchlist })}>
+          {watchlist.map(renderTile)}
+        </Shelf>
+      )}
+      {recommendations.length > 0 && (
+        <Shelf title="Recommended for You" onTitleClick={() => setExpandedShelf({ title: "Recommended for You", items: recommendations })}>
+          {recommendations.map(renderTile)}
+        </Shelf>
+      )}
+      {popularMovies.length > 0 && (
+        <Shelf title="Popular Movies" onTitleClick={() => setExpandedShelf({ title: "Popular Movies", items: popularMovies })}>
+          {popularMovies.map(renderTile)}
+        </Shelf>
+      )}
+      {popularShows.length > 0 && (
+        <Shelf title="Popular Shows" onTitleClick={() => setExpandedShelf({ title: "Popular Shows", items: popularShows })}>
+          {popularShows.map(renderTile)}
+        </Shelf>
+      )}
+
+      {expandedShelf && (
+        <div className="shelf-overlay">
+          <button className="detail-back" onClick={() => setExpandedShelf(null)} aria-label="Close">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <div className="shelf-overlay-scroll">
+            <h1 className="shelf-overlay-title">{expandedShelf.title}</h1>
+            <div className="search-grid">{expandedShelf.items.map(renderTile)}</div>
+          </div>
+        </div>
+      )}
 
       {selectedItem && (
         <MovieDetail

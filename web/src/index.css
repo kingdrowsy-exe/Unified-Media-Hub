@@ -528,6 +528,24 @@ a {
   color: var(--text-muted);
   font-weight: 400;
   font-size: 20px;
+  transition: transform 0.15s ease;
+}
+
+.shelf-title-button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.shelf-title-button:hover {
+  color: var(--text-muted);
+}
+
+.shelf-title-button:hover .shelf-chevron {
+  transform: translateX(3px);
 }
 
 .shelf-row {
@@ -1879,6 +1897,37 @@ button.secondary {
   padding: 5px 14px;
   border-radius: 8px;
   font-weight: 700;
+}
+
+/* ---------- Shelf "See All" Overlay ---------- */
+
+.shelf-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background-color: var(--bg);
+  background-image: var(--ambient-glow);
+  background-repeat: no-repeat;
+}
+
+.shelf-overlay-scroll {
+  height: 100%;
+  overflow-y: auto;
+  padding: 84px 40px 60px;
+}
+
+.shelf-overlay-title {
+  max-width: 1400px;
+  margin: 0 auto 28px;
+  font-size: clamp(24px, 3vw, 32px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+@media (max-width: 500px) {
+  .shelf-overlay-scroll {
+    padding: 76px 16px 40px;
+  }
 }
 
 /* ---------- Movie Detail Overlay ---------- */
