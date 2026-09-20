@@ -129,6 +129,12 @@ export function fetchPopular(): Promise<{ movies: PopularItem[]; shows: PopularI
   return getJson("/api/popular");
 }
 
+export function fetchPopularExpanded(type: "movie" | "show"): Promise<{ items: PopularItem[]; configured: boolean }> {
+  const url = new URL("/api/popular/expand", window.location.origin);
+  url.searchParams.set("type", type);
+  return getJson(url.toString());
+}
+
 export interface TmdbCastMember {
   name: string;
   character: string;

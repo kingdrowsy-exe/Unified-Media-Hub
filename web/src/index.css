@@ -1924,6 +1924,10 @@ button.secondary {
   letter-spacing: -0.02em;
 }
 
+.shelf-overlay-loading {
+  padding-top: 24px;
+}
+
 @media (max-width: 500px) {
   .shelf-overlay-scroll {
     padding: 76px 16px 40px;

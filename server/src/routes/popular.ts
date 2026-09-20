@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { config } from "../config.js";
 import { cached } from "../cache.js";
-import { getPopularMovies, getPopularShows, TmdbItem } from "../clients/tmdb.js";
+import { getPopularMovies, getPopularMoviesExpanded, getPopularShows, getPopularShowsExpanded, TmdbItem } from "../clients/tmdb.js";
 import { attachOwnership, searchOwnedLibrary } from "../library.js";
 import { matchKey, Source } from "../merge.js";
 import { NotConfiguredError } from "../settingsStore.js";
@@ -46,6 +46,30 @@ export async function popularRoutes(app: FastifyInstance) {
     } catch (err) {
       if (err instanceof NotConfiguredError) {
         return { movies: [], shows: [], configured: false };
+      }
+      throw err;
+    }
+  });
+
+  // Powers the "See All" view - a much bigger list than the shelf itself shows, fetched
+  // (and owner-matched) lazily only when someone actually opens it, cached separately so
+  // it doesn't add cost to every routine popular:full refresh.
+  app.get("/api/popular/expand", async (request) => {
+    const { type } = request.query as { type?: string };
+    if (type !== "movie" && type !== "show") {
+      return { items: [], configured: true };
+    }
+    try {
+      return await cached(`popular:expand:${type}`, config.cacheTtlSeconds, async () => {
+        const items = (type === "movie" ? await getPopularMoviesExpanded() : await getPopularShowsExpanded()).map(
+          toPopularItem,
+        );
+        await attachOwnership(items);
+        return { items, configured: true };
+      });
+    } catch (err) {
+      if (err instanceof NotConfiguredError) {
+        return { items: [], configured: false };
       }
       throw err;
     }

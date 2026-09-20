@@ -90,29 +90,45 @@ function toItem(raw: RawTmdbResult, type: "movie" | "show", genres: Map<number, 
 // fetched sequentially rather than in parallel - simple, deliberate throttling to stay
 // far under TMDB's rate limit (40 req/s) regardless of how many things call this at once.
 const POPULAR_COUNT = 25;
+// The "See All" view wants a much bigger list, but fetching (and then owner-matching) 75
+// items is real work - only paid for the once someone actually opens it, via a separately
+// cached key (see popular.ts), not on every popular:full refresh.
+const EXPANDED_COUNT = 75;
 const PAGE_SIZE = 20;
 
-async function fetchPopularPages(path: string): Promise<RawTmdbResult[]> {
+async function fetchPopularPages(path: string, count: number): Promise<RawTmdbResult[]> {
   const results: RawTmdbResult[] = [];
-  for (let page = 1; results.length < POPULAR_COUNT; page++) {
+  for (let page = 1; results.length < count; page++) {
     const data = await tmdbFetch<{ results: RawTmdbResult[]; total_pages: number }>(
       `${path}?page=${page}`,
     );
     results.push(...data.results);
     if (page >= data.total_pages || data.results.length < PAGE_SIZE) break;
   }
-  return results.slice(0, POPULAR_COUNT);
+  return results.slice(0, count);
 }
 
 export async function getPopularMovies(): Promise<TmdbItem[]> {
   const genres = await getMovieGenres();
-  const results = await fetchPopularPages("/movie/popular");
+  const results = await fetchPopularPages("/movie/popular", POPULAR_COUNT);
   return results.map((r) => toItem(r, "movie", genres));
 }
 
 export async function getPopularShows(): Promise<TmdbItem[]> {
   const genres = await getShowGenres();
-  const results = await fetchPopularPages("/tv/popular");
+  const results = await fetchPopularPages("/tv/popular", POPULAR_COUNT);
+  return results.map((r) => toItem(r, "show", genres));
+}
+
+export async function getPopularMoviesExpanded(): Promise<TmdbItem[]> {
+  const genres = await getMovieGenres();
+  const results = await fetchPopularPages("/movie/popular", EXPANDED_COUNT);
+  return results.map((r) => toItem(r, "movie", genres));
+}
+
+export async function getPopularShowsExpanded(): Promise<TmdbItem[]> {
+  const genres = await getShowGenres();
+  const results = await fetchPopularPages("/tv/popular", EXPANDED_COUNT);
   return results.map((r) => toItem(r, "show", genres));
 }
 

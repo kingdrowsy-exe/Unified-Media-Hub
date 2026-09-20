@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { PopularItem, fetchPopular, fetchTraktRecommendations, fetchTraktWatchlist } from "../api.js";
+import { PopularItem, fetchPopular, fetchPopularExpanded, fetchTraktRecommendations, fetchTraktWatchlist } from "../api.js";
 import MovieDetail from "../components/MovieDetail.js";
 import Hero, { HeroItem } from "../components/Hero.js";
 import Shelf from "../components/Shelf.js";
@@ -25,7 +25,29 @@ export default function OnDemand() {
   const [watchlist, setWatchlist] = useState<PopularItem[]>([]);
   const [recommendations, setRecommendations] = useState<PopularItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<PopularItem | null>(null);
-  const [expandedShelf, setExpandedShelf] = useState<{ title: string; items: PopularItem[] } | null>(null);
+  const [expandedShelf, setExpandedShelf] = useState<{ title: string; items: PopularItem[]; loadingMore: boolean } | null>(
+    null,
+  );
+
+  // Popular Movies/Shows only show ~25 items normally (cheap to keep loaded for the
+  // shelf); "See All" wants far more, so fetch a bigger, separately-cached batch lazily,
+  // showing what's already loaded immediately rather than blocking on it.
+  function openExpandedPopular(type: "movie" | "show", title: string, fallback: PopularItem[]) {
+    setExpandedShelf({ title, items: fallback, loadingMore: true });
+    // Guard against a stale response landing after the user closed this shelf or opened
+    // a different one while the fetch was still in flight.
+    fetchPopularExpanded(type)
+      .then((res) => {
+        setExpandedShelf((prev) =>
+          prev && prev.title === title
+            ? { title, items: res.items.length > 0 ? res.items : fallback, loadingMore: false }
+            : prev,
+        );
+      })
+      .catch(() => {
+        setExpandedShelf((prev) => (prev && prev.title === title ? { title, items: fallback, loadingMore: false } : prev));
+      });
+  }
 
   useEffect(() => {
     fetchPopular()
@@ -90,22 +112,28 @@ export default function OnDemand() {
       )}
 
       {watchlist.length > 0 && (
-        <Shelf title="Your Trakt Watchlist" onTitleClick={() => setExpandedShelf({ title: "Your Trakt Watchlist", items: watchlist })}>
+        <Shelf
+          title="Your Trakt Watchlist"
+          onTitleClick={() => setExpandedShelf({ title: "Your Trakt Watchlist", items: watchlist, loadingMore: false })}
+        >
           {watchlist.map(renderTile)}
         </Shelf>
       )}
       {recommendations.length > 0 && (
-        <Shelf title="Recommended for You" onTitleClick={() => setExpandedShelf({ title: "Recommended for You", items: recommendations })}>
+        <Shelf
+          title="Recommended for You"
+          onTitleClick={() => setExpandedShelf({ title: "Recommended for You", items: recommendations, loadingMore: false })}
+        >
           {recommendations.map(renderTile)}
         </Shelf>
       )}
       {popularMovies.length > 0 && (
-        <Shelf title="Popular Movies" onTitleClick={() => setExpandedShelf({ title: "Popular Movies", items: popularMovies })}>
+        <Shelf title="Popular Movies" onTitleClick={() => openExpandedPopular("movie", "Popular Movies", popularMovies)}>
           {popularMovies.map(renderTile)}
         </Shelf>
       )}
       {popularShows.length > 0 && (
-        <Shelf title="Popular Shows" onTitleClick={() => setExpandedShelf({ title: "Popular Shows", items: popularShows })}>
+        <Shelf title="Popular Shows" onTitleClick={() => openExpandedPopular("show", "Popular Shows", popularShows)}>
           {popularShows.map(renderTile)}
         </Shelf>
       )}
@@ -120,6 +148,7 @@ export default function OnDemand() {
           <div className="shelf-overlay-scroll">
             <h1 className="shelf-overlay-title">{expandedShelf.title}</h1>
             <div className="search-grid">{expandedShelf.items.map(renderTile)}</div>
+            {expandedShelf.loadingMore && <div className="status shelf-overlay-loading">Loading more…</div>}
           </div>
         </div>
       )}
