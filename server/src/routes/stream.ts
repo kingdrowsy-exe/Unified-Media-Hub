@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply } from "fastify";
 import { Readable } from "node:stream";
 import { resolvePlexStreamUrl } from "../clients/plex.js";
 import { resolveSiloStreamUrl } from "../clients/silo.js";
+import { resolveEmbyStreamUrl } from "../clients/emby.js";
 import { liveStreamUrl } from "../clients/xtream.js";
 
 function isPlaylist(contentType: string, url: string): boolean {
@@ -118,6 +119,14 @@ export async function streamRoutes(app: FastifyInstance) {
 
     if (source === "plex") {
       const url = await resolvePlexStreamUrl(id);
+      return reply.code(302).redirect(url);
+    }
+
+    if (source === "emby") {
+      // Unlike Silo, Emby accepts its auth token as a plain URL query param and its
+      // stream endpoint natively supports Range requests, so - like Plex - this can be a
+      // redirect straight to Emby's own server instead of proxying through this one.
+      const url = await resolveEmbyStreamUrl(id);
       return reply.code(302).redirect(url);
     }
 

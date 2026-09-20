@@ -3,7 +3,7 @@ import { config } from "../config.js";
 import { cached } from "../cache.js";
 import { getPopularMovies, getPopularShows, TmdbItem } from "../clients/tmdb.js";
 import { attachOwnership, searchOwnedLibrary } from "../library.js";
-import { matchKey } from "../merge.js";
+import { matchKey, Source } from "../merge.js";
 import { NotConfiguredError } from "../settingsStore.js";
 
 export interface PopularItem {
@@ -15,7 +15,7 @@ export interface PopularItem {
   backdrop?: string;
   genre?: string;
   ratingPercent?: number;
-  sources: { source: "plex" | "silo"; id: string }[];
+  sources: { source: Source; id: string }[];
 }
 
 function toPopularItem(t: TmdbItem): PopularItem {

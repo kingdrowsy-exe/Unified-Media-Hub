@@ -3,13 +3,14 @@ import { cached } from "../cache.js";
 import { getMovieDetails, getTvDetails, searchTmdbId } from "../clients/tmdb.js";
 import { getPlexMediaVersions, PlexMediaVersion } from "../clients/plex.js";
 import { getSiloMediaVersions, SiloMediaVersion } from "../clients/silo.js";
+import { getEmbyMediaVersions, EmbyMediaVersion } from "../clients/emby.js";
 import { getRatingAndComments } from "../clients/trakt.js";
 import { searchOwnedLibrary } from "../library.js";
-import { matchKey } from "../merge.js";
+import { matchKey, Source } from "../merge.js";
 import { NotConfiguredError } from "../settingsStore.js";
 
 export interface SourceVersion {
-  source: "plex" | "silo";
+  source: Source;
   id: string;
   serverName: string;
   filename?: string;
@@ -83,7 +84,7 @@ function buildBadges(opts: {
   audioChannels?: number;
   filename?: string;
   hdr?: string;
-  source: "plex" | "silo";
+  source: Source;
 }): string[] {
   const badges: string[] = [];
   const parsed = parseFilename(opts.filename);
@@ -173,6 +174,29 @@ function siloToSourceVersion(v: SiloMediaVersion): SourceVersion {
   };
 }
 
+function embyToSourceVersion(v: EmbyMediaVersion): SourceVersion {
+  return {
+    source: "emby",
+    id: v.itemId,
+    serverName: "Emby",
+    filename: v.filename,
+    size: v.size,
+    resolution: formatResolution(v.resolution),
+    videoCodec: v.videoCodec,
+    audioCodec: v.audioCodec,
+    audioChannels: v.audioChannels,
+    container: v.container,
+    badges: buildBadges({
+      resolution: v.resolution,
+      videoCodec: v.videoCodec,
+      audioCodec: v.audioCodec,
+      audioChannels: v.audioChannels,
+      filename: v.filename,
+      source: "emby",
+    }),
+  };
+}
+
 const RESOLUTION_RANK: Record<string, number> = {
   "4K": 0,
   "1080p": 1,
@@ -243,6 +267,9 @@ export async function detailsRoutes(app: FastifyInstance) {
           } else if (src.source === "silo") {
             const siloVersions = await getSiloMediaVersions(src.id);
             versions.push(...siloVersions.map(siloToSourceVersion));
+          } else if (src.source === "emby") {
+            const embyVersions = await getEmbyMediaVersions(src.id);
+            versions.push(...embyVersions.map(embyToSourceVersion));
           }
         } catch {
           // Source not reachable, skip

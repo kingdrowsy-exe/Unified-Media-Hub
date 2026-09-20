@@ -21,6 +21,12 @@ export interface SiloSettings {
   password: string;
 }
 
+export interface EmbySettings {
+  baseUrl: string;
+  username: string;
+  password: string;
+}
+
 export interface XtreamSettings {
   baseUrl: string;
   username: string;
@@ -42,6 +48,7 @@ export interface TraktSettings {
 interface Settings {
   plex?: PlexSettings;
   silo?: SiloSettings;
+  emby?: EmbySettings;
   xtream?: XtreamSettings;
   tmdb?: TmdbSettings;
   trakt?: TraktSettings;
@@ -85,6 +92,17 @@ export const settingsStore = {
   },
   clearSilo() {
     delete load().silo;
+    persist();
+  },
+  getEmby(): EmbySettings | undefined {
+    return load().emby;
+  },
+  setEmby(emby: EmbySettings) {
+    load().emby = emby;
+    persist();
+  },
+  clearEmby() {
+    delete load().emby;
     persist();
   },
   getXtream(): XtreamSettings | undefined {
@@ -131,19 +149,21 @@ export const settingsStore = {
     return {
       plex: Boolean(s.plex),
       silo: Boolean(s.silo),
+      emby: Boolean(s.emby),
       xtream: Boolean(s.xtream),
       tmdb: Boolean(s.tmdb),
       trakt: Boolean(s.trakt?.accessToken),
       traktConfigured: Boolean(s.trakt),
       plexServerName: s.plex?.serverName,
       siloBaseUrl: s.silo?.baseUrl,
+      embyBaseUrl: s.emby?.baseUrl,
       xtreamBaseUrl: s.xtream?.baseUrl,
     };
   },
 };
 
 export class NotConfiguredError extends Error {
-  constructor(public service: "plex" | "silo" | "xtream" | "tmdb" | "trakt") {
+  constructor(public service: "plex" | "silo" | "emby" | "xtream" | "tmdb" | "trakt") {
     super(`${service} is not configured yet`);
   }
 }
