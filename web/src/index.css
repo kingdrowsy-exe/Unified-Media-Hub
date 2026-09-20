@@ -1564,11 +1564,11 @@ a {
 /* ---------- Settings ---------- */
 
 .settings-page {
-  max-width: 600px;
+  max-width: 980px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 22px;
   padding-top: 12px;
   padding-bottom: 40px;
 }
@@ -1592,12 +1592,14 @@ a {
 }
 
 .settings-group {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  align-items: start;
   gap: 14px;
 }
 
 .settings-group-title {
+  grid-column: 1 / -1;
   margin: 0;
   padding-left: 4px;
   font-size: 12px;
@@ -1612,7 +1614,7 @@ a {
   border: 1px solid var(--border);
   border-left: 3px solid var(--border);
   border-radius: 14px;
-  padding: 22px;
+  padding: 18px 20px;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -1669,7 +1671,7 @@ a {
 .settings-form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .settings-form label {
