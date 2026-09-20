@@ -63,6 +63,11 @@ export interface SiloMediaVersion {
 
 let session: { accessToken: string; expiresAt: number } | null = null;
 let profileId: string | null = null;
+// Several concurrent title searches/lookups can all find no session or profile id yet on a
+// cold start and each independently call authenticate()/fetch the profile list without
+// this - a duplicate burst against Silo every time the cache expires and a new batch starts.
+let authenticating: Promise<{ accessToken: string; expiresAt: number }> | null = null;
+let fetchingProfileId: Promise<string> | null = null;
 
 // Resolving a stream URL calls POST /playback/start, which opens a brand new playback
 // session with Silo (a fresh playback_attempt_id) every time - and we never tell Silo when
@@ -73,6 +78,12 @@ let profileId: string | null = null;
 // seeks) reuse the one session already opened for that title instead of opening another.
 const streamUrlCache = new Map<string, { url: string; accessToken: string; resolvedAt: number }>();
 const STREAM_URL_TTL_MS = 4 * 60 * 60 * 1000;
+
+// If a resolve for a title is already in flight (e.g. an early seek fires a second Range
+// request before the first request's playback/start round-trip has even finished), await
+// that same promise instead of starting a second playback session - the cache above only
+// closes this gap for requests that land *after* the first one has already resolved.
+const inFlightResolves = new Map<string, Promise<{ url: string; accessToken: string }>>();
 
 function requireSilo() {
   const silo = settingsStore.getSilo();
@@ -105,14 +116,15 @@ async function authenticate(): Promise<{ accessToken: string; expiresAt: number 
 }
 
 async function getSession() {
-  if (!session || session.expiresAt < Date.now()) {
-    return authenticate();
-  }
-  return session;
+  if (session && session.expiresAt >= Date.now()) return session;
+  if (authenticating) return authenticating;
+  authenticating = authenticate().finally(() => {
+    authenticating = null;
+  });
+  return authenticating;
 }
 
-async function getProfileId(): Promise<string> {
-  if (profileId) return profileId;
+async function fetchProfileId(): Promise<string> {
   const silo = requireSilo();
   const s = await getSession();
   const res = await fetch(`${silo.baseUrl}/api/v1/profiles`, {
@@ -128,6 +140,15 @@ async function getProfileId(): Promise<string> {
   }
   profileId = profile.id;
   return profileId;
+}
+
+async function getProfileId(): Promise<string> {
+  if (profileId) return profileId;
+  if (fetchingProfileId) return fetchingProfileId;
+  fetchingProfileId = fetchProfileId().finally(() => {
+    fetchingProfileId = null;
+  });
+  return fetchingProfileId;
 }
 
 function toSiloItem(item: SiloCatalogItem): SiloItem {
@@ -246,6 +267,17 @@ export async function resolveSiloStreamUrl(contentId: string): Promise<{ url: st
     return { url: cached.url, accessToken: cached.accessToken };
   }
 
+  const pending = inFlightResolves.get(contentId);
+  if (pending) return pending;
+
+  const promise = resolveSiloStreamUrlUncached(contentId).finally(() => {
+    inFlightResolves.delete(contentId);
+  });
+  inFlightResolves.set(contentId, promise);
+  return promise;
+}
+
+async function resolveSiloStreamUrlUncached(contentId: string): Promise<{ url: string; accessToken: string }> {
   const silo = requireSilo();
   const s = await getSession();
   const headers = { Authorization: `Bearer ${s.accessToken}` };

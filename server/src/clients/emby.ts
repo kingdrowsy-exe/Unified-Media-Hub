@@ -15,6 +15,10 @@ interface EmbyAuthResult {
 }
 
 let session: { accessToken: string; userId: string } | null = null;
+// Several concurrent title searches (up to MATCH_CONCURRENCY, see library.ts) can all find
+// no session yet on a cold start and each call authenticate() independently without this -
+// a duplicate login burst against Emby every time the cache expires and a new batch starts.
+let authenticating: Promise<{ accessToken: string; userId: string }> | null = null;
 
 interface EmbyView {
   Id: string;
@@ -24,6 +28,7 @@ interface EmbyView {
 // The library folders (e.g. "Movies", "TV Shows") almost never change, so this is worth
 // caching across requests rather than re-fetching it before every /Items call.
 let viewsCache: EmbyView[] | null = null;
+let fetchingViews: Promise<EmbyView[]> | null = null;
 
 function requireEmby() {
   const emby = settingsStore.getEmby();
@@ -63,8 +68,12 @@ async function authenticate(): Promise<{ accessToken: string; userId: string }> 
 }
 
 async function getSession() {
-  if (!session) return authenticate();
-  return session;
+  if (session) return session;
+  if (authenticating) return authenticating;
+  authenticating = authenticate().finally(() => {
+    authenticating = null;
+  });
+  return authenticating;
 }
 
 async function embyFetch<T>(path: string, params: Record<string, string> = {}): Promise<T> {
@@ -88,10 +97,16 @@ const POPULAR_PAGE_SIZE = 24;
 
 async function getLibraryViews(): Promise<EmbyView[]> {
   if (viewsCache) return viewsCache;
-  const s = await getSession();
-  const data = await embyFetch<{ Items: EmbyView[] }>(`/Users/${s.userId}/Views`);
-  viewsCache = data.Items;
-  return viewsCache;
+  if (fetchingViews) return fetchingViews;
+  fetchingViews = (async () => {
+    const s = await getSession();
+    const data = await embyFetch<{ Items: EmbyView[] }>(`/Users/${s.userId}/Views`);
+    viewsCache = data.Items;
+    return viewsCache;
+  })().finally(() => {
+    fetchingViews = null;
+  });
+  return fetchingViews;
 }
 
 // Querying /Items with Recursive=true walks the *entire* library tree (down through every

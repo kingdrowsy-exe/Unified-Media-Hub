@@ -1,5 +1,6 @@
 import { config } from "./config.js";
 import { cached } from "./cache.js";
+import { createLimiter } from "./concurrencyLimiter.js";
 import { listPopularLibraryItems, PlexItem, searchLibraryItems as searchPlexItems } from "./clients/plex.js";
 import { listSiloItems, searchSiloItems, SiloItem } from "./clients/silo.js";
 import { listPopularEmbyItems, searchEmbyItems, EmbyItem } from "./clients/emby.js";
@@ -60,27 +61,34 @@ interface OwnableItem {
   sources: { source: Source; id: string }[];
 }
 
-// Shared by /api/popular and /api/trakt/* (watchlist, recommendations): each title's
-// ownership check is a live, targeted Plex/Silo/Emby search (the same one GET /api/match
-// uses), never a full-library scan. Callers wrap this in their own cache so a given batch
-// of titles only actually runs once per cache window. A small concurrency cap just keeps
-// that one-time batch from bursting every lookup at once.
+// Shared by /api/popular, /api/popular/expand, and /api/trakt/* (watchlist,
+// recommendations): each title's ownership check is a live, targeted Plex/Silo/Emby
+// search (the same one GET /api/match uses), never a full-library scan. Callers wrap this
+// in their own cache so a given batch of titles only actually runs once per cache window.
+//
+// This limiter is module-level (one instance, not one per call) deliberately: Popular
+// Movies, Popular Shows, the "See All" expansions, and both Trakt shelves can all refresh
+// their cache around the same time (e.g. right when someone loads On Demand after the
+// cache has expired), and each is its own batch of many titles. A per-call concurrency
+// cap wouldn't stop those batches from stacking on top of each other - only a single
+// shared limiter actually bounds how many ownership searches are in flight at once,
+// server-wide, against Plex/Silo/Emby.
 const MATCH_CONCURRENCY = 4;
+const matchLimiter = createLimiter(MATCH_CONCURRENCY);
 
 export async function attachOwnership<T extends OwnableItem>(items: T[]): Promise<void> {
-  let next = 0;
-  async function worker() {
-    while (next < items.length) {
-      const item = items[next++];
-      try {
-        const { merged } = await searchOwnedLibrary(item.title);
-        const targetKey = matchKey(item.title, item.year);
-        const match = merged.find((m) => matchKey(m.title, m.year) === targetKey);
-        if (match) item.sources = match.sources;
-      } catch {
-        // Leave unmatched on any lookup failure - the tile just shows as not-in-library.
-      }
-    }
-  }
-  await Promise.all(Array.from({ length: MATCH_CONCURRENCY }, worker));
+  await Promise.all(
+    items.map((item) =>
+      matchLimiter(async () => {
+        try {
+          const { merged } = await searchOwnedLibrary(item.title);
+          const targetKey = matchKey(item.title, item.year);
+          const match = merged.find((m) => matchKey(m.title, m.year) === targetKey);
+          if (match) item.sources = match.sources;
+        } catch {
+          // Leave unmatched on any lookup failure - the tile just shows as not-in-library.
+        }
+      }),
+    ),
+  );
 }

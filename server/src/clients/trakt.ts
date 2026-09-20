@@ -231,14 +231,21 @@ function toListItem(entry: TraktMovieOrShow, type: "movie" | "show"): TraktListI
   return { tmdbId: entry.ids.tmdb, title: entry.title, year: entry.year, type };
 }
 
+// /sync/watchlist has no limit/pagination of its own - it hands back the user's entire
+// watchlist in one response, which for a years-old account can be hundreds of items. Each
+// one costs a TMDB lookup plus an owner-match search per media server downstream (see
+// trakt.ts route and library.ts), so an unbounded watchlist would burst all of those every
+// cache refresh. Capped the same way Popular Movies/Shows are, per type.
+const WATCHLIST_LIMIT_PER_TYPE = 30;
+
 export async function getWatchlist(): Promise<TraktListItem[]> {
   const [movies, shows] = await Promise.all([
     traktAuthFetch<{ movie: TraktMovieOrShow }[]>("/sync/watchlist/movies"),
     traktAuthFetch<{ show: TraktMovieOrShow }[]>("/sync/watchlist/shows"),
   ]);
   const items = [
-    ...movies.map((m) => toListItem(m.movie, "movie")),
-    ...shows.map((s) => toListItem(s.show, "show")),
+    ...movies.slice(0, WATCHLIST_LIMIT_PER_TYPE).map((m) => toListItem(m.movie, "movie")),
+    ...shows.slice(0, WATCHLIST_LIMIT_PER_TYPE).map((s) => toListItem(s.show, "show")),
   ];
   return items.filter((i): i is TraktListItem => i !== null);
 }
