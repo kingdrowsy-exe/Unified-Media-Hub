@@ -1,9 +1,10 @@
 import type { FastifyInstance, FastifyReply } from "fastify";
-import { Readable } from "node:stream";
+import { Readable, pipeline } from "node:stream";
 import { resolvePlexStreamUrl } from "../clients/plex.js";
 import { invalidateSiloStreamUrl, resolveSiloStreamUrl } from "../clients/silo.js";
 import { resolveEmbyStreamUrl } from "../clients/emby.js";
 import { liveStreamUrl } from "../clients/xtream.js";
+import { createTsAudioFilter } from "../tsAudioFilter.js";
 
 function isPlaylist(contentType: string, url: string): boolean {
   return /mpegurl/i.test(contentType) || /\.m3u8(\?|$)/i.test(url);
@@ -53,6 +54,20 @@ async function proxyHlsResource(targetUrl: string, reply: FastifyReply, range?: 
   }
 
   reply.header("content-type", contentType || "video/mp2t");
+
+  // Whole-segment (non-Range) transport-stream responses get their unplayable audio tracks
+  // stripped - see tsAudioFilter.ts. This changes the body length, so content-length is
+  // deliberately not forwarded for these.
+  const isTransportStream = /mp2t/i.test(contentType) || /\.ts(\?|$)/i.test(targetUrl);
+  if (isTransportStream && !range && upstream.status === 200 && upstream.body) {
+    const source = Readable.fromWeb(upstream.body as Parameters<typeof Readable.fromWeb>[0]);
+    const filter = createTsAudioFilter();
+    // pipeline (not .pipe) so that when the client goes away and Fastify destroys `filter`,
+    // the upstream response is torn down too instead of being left half-read.
+    pipeline(source, filter, () => {});
+    return reply.send(filter);
+  }
+
   const length = upstream.headers.get("content-length");
   if (length) reply.header("content-length", length);
   if (upstream.status === 206) {
