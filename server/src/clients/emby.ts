@@ -16,6 +16,15 @@ interface EmbyAuthResult {
 
 let session: { accessToken: string; userId: string } | null = null;
 
+interface EmbyView {
+  Id: string;
+  CollectionType?: string;
+}
+
+// The library folders (e.g. "Movies", "TV Shows") almost never change, so this is worth
+// caching across requests rather than re-fetching it before every /Items call.
+let viewsCache: EmbyView[] | null = null;
+
 function requireEmby() {
   const emby = settingsStore.getEmby();
   if (!emby) {
@@ -26,6 +35,7 @@ function requireEmby() {
 
 export function resetEmbySession() {
   session = null;
+  viewsCache = null;
 }
 
 // Emby (and Jellyfin, which shares this API) identifies API clients via this header on
@@ -76,15 +86,47 @@ export function embyTypeToCommon(type: string): "movie" | "show" {
 
 const POPULAR_PAGE_SIZE = 24;
 
-async function fetchItems(params: Record<string, string>): Promise<EmbyItem[]> {
+async function getLibraryViews(): Promise<EmbyView[]> {
+  if (viewsCache) return viewsCache;
   const s = await getSession();
-  const data = await embyFetch<{ Items: EmbyItem[] }>(`/Users/${s.userId}/Items`, {
-    IncludeItemTypes: "Movie,Series",
-    Recursive: "true",
-    Fields: "Genres,CommunityRating",
-    ...params,
-  });
-  return data.Items;
+  const data = await embyFetch<{ Items: EmbyView[] }>(`/Users/${s.userId}/Views`);
+  viewsCache = data.Items;
+  return viewsCache;
+}
+
+// Querying /Items with Recursive=true walks the *entire* library tree (down through every
+// season and episode) to find matching movies/series, which measured multiple minutes on
+// a real-world library. Movies and Series are direct children of their library folder
+// though (episodes are nested under Series, not siblings of it), so querying each media
+// folder's direct children (ParentId, no Recursive) returns the same Movie/Series items
+// without that walk - it's what /Views + non-recursive /Items is for. Sort/limit are then
+// re-applied in JS since each folder is fetched and sorted independently.
+async function fetchItems(params: Record<string, string>): Promise<EmbyItem[]> {
+  const { Limit: limit, SortBy: sortBy, ...restParams } = params;
+  const s = await getSession();
+  const views = await getLibraryViews();
+  const mediaFolders = views.filter((v) => v.CollectionType === "movies" || v.CollectionType === "tvshows");
+  const folders = mediaFolders.length > 0 ? mediaFolders : views;
+
+  const perFolder = await Promise.all(
+    folders.map((folder) =>
+      embyFetch<{ Items: EmbyItem[] }>(`/Users/${s.userId}/Items`, {
+        ParentId: folder.Id,
+        IncludeItemTypes: "Movie,Series",
+        Fields: "Genres,CommunityRating",
+        ...restParams,
+      })
+        .then((d) => d.Items)
+        .catch(() => [] as EmbyItem[]),
+    ),
+  );
+
+  let items = perFolder.flat();
+  if (sortBy === "CommunityRating,SortName") {
+    items = items.sort((a, b) => (b.CommunityRating ?? 0) - (a.CommunityRating ?? 0));
+  }
+  if (limit) items = items.slice(0, Number(limit));
+  return items;
 }
 
 // Same bounded-page approach as Plex/Silo's "popular" list - sorted by rating, not a full

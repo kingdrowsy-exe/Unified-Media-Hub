@@ -64,6 +64,16 @@ export interface SiloMediaVersion {
 let session: { accessToken: string; expiresAt: number } | null = null;
 let profileId: string | null = null;
 
+// Resolving a stream URL calls POST /playback/start, which opens a brand new playback
+// session with Silo (a fresh playback_attempt_id) every time - and we never tell Silo when
+// one is abandoned. A plain <video> element fires a new GET at our stream route on every
+// seek, so without this cache, rapid seeking would pile up concurrent sessions against
+// whatever limit Silo enforces, which then rejects further attempts until the old ones
+// time out server-side. Caching the resolved URL per title means repeat requests (i.e.
+// seeks) reuse the one session already opened for that title instead of opening another.
+const streamUrlCache = new Map<string, { url: string; accessToken: string; resolvedAt: number }>();
+const STREAM_URL_TTL_MS = 4 * 60 * 60 * 1000;
+
 function requireSilo() {
   const silo = settingsStore.getSilo();
   if (!silo) {
@@ -75,6 +85,7 @@ function requireSilo() {
 export function resetSiloSession() {
   session = null;
   profileId = null;
+  streamUrlCache.clear();
 }
 
 async function authenticate(): Promise<{ accessToken: string; expiresAt: number }> {
@@ -225,7 +236,16 @@ function deliveryCapability(overrides: Record<string, unknown> = {}) {
   };
 }
 
+export function invalidateSiloStreamUrl(contentId: string): void {
+  streamUrlCache.delete(contentId);
+}
+
 export async function resolveSiloStreamUrl(contentId: string): Promise<{ url: string; accessToken: string }> {
+  const cached = streamUrlCache.get(contentId);
+  if (cached && Date.now() - cached.resolvedAt < STREAM_URL_TTL_MS) {
+    return { url: cached.url, accessToken: cached.accessToken };
+  }
+
   const silo = requireSilo();
   const s = await getSession();
   const headers = { Authorization: `Bearer ${s.accessToken}` };
@@ -291,5 +311,7 @@ export async function resolveSiloStreamUrl(contentId: string): Promise<{ url: st
     throw new Error("Silo didn't return a playable stream for this title");
   }
 
-  return { url: `${silo.baseUrl}/api/v1${streamPath}`, accessToken: s.accessToken };
+  const url = `${silo.baseUrl}/api/v1${streamPath}`;
+  streamUrlCache.set(contentId, { url, accessToken: s.accessToken, resolvedAt: Date.now() });
+  return { url, accessToken: s.accessToken };
 }

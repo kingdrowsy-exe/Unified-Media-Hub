@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { Readable } from "node:stream";
 import { resolvePlexStreamUrl } from "../clients/plex.js";
-import { resolveSiloStreamUrl } from "../clients/silo.js";
+import { invalidateSiloStreamUrl, resolveSiloStreamUrl } from "../clients/silo.js";
 import { resolveEmbyStreamUrl } from "../clients/emby.js";
 import { liveStreamUrl } from "../clients/xtream.js";
 
@@ -80,34 +80,45 @@ export async function streamRoutes(app: FastifyInstance) {
       // (not just a token embedded in the URL), which a 302 redirect can't hand off to
       // the browser - so we proxy the video through this server instead of redirecting.
       //
-      // Every call to resolveSiloStreamUrl opens a brand new playback session with Silo
-      // (a fresh playback_attempt_id) - and we never tell Silo when one is abandoned. The
-      // browser's native seeking on a plain <video src> fires a new request here on every
-      // seek, so without the two things below, rapid seeking piles up concurrent sessions
-      // against whatever limit Silo enforces, which then rejects further attempts until
-      // the old ones time out server-side (the "wait a bit and it works again" pattern).
-      //
-      // 1. accept-ranges: none tells the browser up front that this resource can't be
-      //    range-requested, so it stops trying and just clamps seeking to what's already
-      //    buffered (see Player.tsx's clampToSeekable) instead of firing a new request.
-      // 2. Aborting the upstream Silo fetch when the client disconnects (seeks again,
-      //    closes the player) stops us from holding a session open that nothing wants.
-      reply.header("accept-ranges", "none");
-
-      const { url, accessToken } = await resolveSiloStreamUrl(id);
+      // resolveSiloStreamUrl caches the resolved URL per title (see silo.ts), so a seek -
+      // which makes the browser fire a new Range request at this route - reuses the same
+      // upstream playback session instead of opening a new one. That's what makes it safe
+      // to forward Range/206 here and let the browser seek normally.
+      const range = request.headers.range as string | undefined;
       const controller = new AbortController();
       reply.raw.on("close", () => controller.abort());
 
-      const upstream = await fetch(url, {
-        headers: { Authorization: `Bearer ${accessToken}` },
+      let { url, accessToken } = await resolveSiloStreamUrl(id);
+      let upstream = await fetch(url, {
+        headers: range ? { Authorization: `Bearer ${accessToken}`, Range: range } : { Authorization: `Bearer ${accessToken}` },
         signal: controller.signal,
       });
-      if (!upstream.ok || !upstream.body) {
+
+      // The cached URL/session can go stale server-side before our own TTL does - if Silo
+      // rejects it, drop the cache entry and resolve (and retry) exactly once more.
+      if (upstream.status === 401 || upstream.status === 403) {
+        invalidateSiloStreamUrl(id);
+        ({ url, accessToken } = await resolveSiloStreamUrl(id));
+        upstream = await fetch(url, {
+          headers: range ? { Authorization: `Bearer ${accessToken}`, Range: range } : { Authorization: `Bearer ${accessToken}` },
+          signal: controller.signal,
+        });
+      }
+
+      if ((!upstream.ok && upstream.status !== 206) || !upstream.body) {
         return reply.code(502).send({ error: "Failed to reach Silo stream" });
       }
       reply.header("content-type", upstream.headers.get("content-type") ?? "video/mp4");
       const length = upstream.headers.get("content-length");
       if (length) reply.header("content-length", length);
+      if (upstream.status === 206) {
+        reply.code(206);
+        reply.header("accept-ranges", "bytes");
+        const contentRange = upstream.headers.get("content-range");
+        if (contentRange) reply.header("content-range", contentRange);
+      } else {
+        reply.header("accept-ranges", "bytes");
+      }
       return reply.send(Readable.fromWeb(upstream.body as Parameters<typeof Readable.fromWeb>[0]));
     }
 
