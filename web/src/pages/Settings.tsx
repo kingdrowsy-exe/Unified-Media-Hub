@@ -19,6 +19,7 @@ import {
   startTraktLink,
   testConnection,
 } from "../api.js";
+import { EmbyIcon, PlexIcon, SiloIcon, TmdbIcon, TraktIcon, XtreamIcon } from "../components/ServiceIcons.js";
 
 type PlexLinkState =
   | { phase: "idle" }
@@ -215,7 +216,7 @@ function TestConnectionButton({ service }: { service: "plex" | "silo" | "emby" |
 }
 
 function SettingsRow({
-  letter,
+  icon,
   color,
   name,
   subtitle,
@@ -224,7 +225,7 @@ function SettingsRow({
   onToggle,
   children,
 }: {
-  letter: string;
+  icon: React.ReactNode;
   color: string;
   name: string;
   subtitle: string;
@@ -237,7 +238,7 @@ function SettingsRow({
     <div className={`settings-row ${expanded ? "expanded" : ""}`}>
       <button type="button" className="settings-row-header" onClick={onToggle}>
         <span className="settings-row-icon" style={{ background: color }}>
-          {letter}
+          {icon}
         </span>
         <span className="settings-row-title">
           <span className="settings-row-name">{name}</span>
@@ -388,7 +389,7 @@ export default function Settings() {
           {category === "servers" && (
             <>
               <SettingsRow
-                letter="P"
+                icon={<PlexIcon className="settings-row-icon-svg" />}
                 color="var(--plex-color)"
                 name="Plex"
                 subtitle={status.plex ? status.plexServerName ?? "Connected" : "Not connected"}
@@ -431,7 +432,7 @@ export default function Settings() {
               </SettingsRow>
 
               <SettingsRow
-                letter="S"
+                icon={<SiloIcon className="settings-row-icon-img" />}
                 color="var(--silo-color)"
                 name="Silo"
                 subtitle={status.silo ? status.siloBaseUrl ?? "Connected" : "Not connected"}
@@ -462,7 +463,7 @@ export default function Settings() {
               </SettingsRow>
 
               <SettingsRow
-                letter="E"
+                icon={<EmbyIcon className="settings-row-icon-svg" />}
                 color="var(--emby-color)"
                 name="Emby"
                 subtitle={status.emby ? status.embyBaseUrl ?? "Connected" : "Not connected"}
@@ -493,7 +494,7 @@ export default function Settings() {
 
           {category === "livetv" && (
             <SettingsRow
-              letter="X"
+              icon={<XtreamIcon className="settings-row-icon-svg" />}
               color="var(--accent-2)"
               name="Xtream Codes IPTV"
               subtitle={status.xtream ? status.xtreamBaseUrl ?? "Connected" : "Not connected"}
@@ -524,7 +525,7 @@ export default function Settings() {
           {category === "metadata" && (
             <>
               <SettingsRow
-                letter="T"
+                icon={<TmdbIcon className="settings-row-icon-svg" />}
                 color="#01d277"
                 name="TMDB"
                 subtitle={status.tmdb ? "Connected" : "Not connected"}
@@ -556,7 +557,7 @@ export default function Settings() {
               </SettingsRow>
 
               <SettingsRow
-                letter="T"
+                icon={<TraktIcon className="settings-row-icon-svg" />}
                 color="#ed1c24"
                 name="Trakt"
                 subtitle={status.trakt ? "Connected" : status.traktConfigured ? "Not linked" : "Not connected"}
