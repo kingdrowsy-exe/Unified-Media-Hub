@@ -4,7 +4,11 @@ import { resolvePlexStreamUrl } from "../clients/plex.js";
 import { invalidateSiloStreamUrl, resolveSiloStreamUrl } from "../clients/silo.js";
 import { resolveEmbyStreamUrl } from "../clients/emby.js";
 import { liveStreamUrl } from "../clients/xtream.js";
-import { createTsAudioFilter } from "../tsAudioFilter.js";
+import { audioNeedsTranscode, createTsAudioFilter } from "../tsAudioFilter.js";
+import { isAudioTranscodeAvailable, peekHead, transcodeAudioToAac } from "../audioTranscode.js";
+
+// Enough of a segment's start to be sure of catching its PAT/PMT (they lead each segment).
+const PEEK_BYTES = 188 * 64;
 
 function isPlaylist(contentType: string, url: string): boolean {
   return /mpegurl/i.test(contentType) || /\.m3u8(\?|$)/i.test(url);
@@ -60,11 +64,20 @@ async function proxyHlsResource(targetUrl: string, reply: FastifyReply, range?: 
   // deliberately not forwarded for these.
   const isTransportStream = /mp2t/i.test(contentType) || /\.ts(\?|$)/i.test(targetUrl);
   if (isTransportStream && !range && upstream.status === 200 && upstream.body) {
-    const source = Readable.fromWeb(upstream.body as Parameters<typeof Readable.fromWeb>[0]);
+    const raw = Readable.fromWeb(upstream.body as Parameters<typeof Readable.fromWeb>[0]);
+    const { head, stream } = await peekHead(raw, PEEK_BYTES);
+
+    // Audio the browser can't decode with no AAC track to fall back to (e.g. AC-3-only
+    // feeds) has to be converted; if that isn't possible, fall through to the filter, which
+    // at least keeps the video playable.
+    if (isAudioTranscodeAvailable() && audioNeedsTranscode(head)) {
+      return reply.send(transcodeAudioToAac(stream));
+    }
+
     const filter = createTsAudioFilter();
     // pipeline (not .pipe) so that when the client goes away and Fastify destroys `filter`,
     // the upstream response is torn down too instead of being left half-read.
-    pipeline(source, filter, () => {});
+    pipeline(stream, filter, () => {});
     return reply.send(filter);
   }
 

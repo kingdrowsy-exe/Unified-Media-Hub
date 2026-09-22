@@ -73,3 +73,12 @@ This is intentionally a separate copy/repo from the main web-app project rather 
 shared codebase — the two are built and shipped differently enough (npm scripts + a
 browser tab vs. a packaged installer) that keeping them independent is simpler than
 threading one build around both.
+
+## Third-party software
+
+The installer bundles an [FFmpeg](https://ffmpeg.org) binary (via the
+[`ffmpeg-static`](https://github.com/eugeneware/ffmpeg-static) package, licensed
+GPL-3.0-or-later; see `node_modules/ffmpeg-static/ffmpeg.exe.LICENSE` in a checkout, and
+FFmpeg's source at https://ffmpeg.org/download.html). It is run as a separate process, and
+only to convert audio that browsers can't play (AC-3 / E-AC-3, common on some live TV
+feeds) to AAC. Video is copied through untouched, never re-encoded.

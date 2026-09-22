@@ -70,9 +70,15 @@ function findPmtPid(packet: Buffer): number | null {
   return null;
 }
 
-// Returns a rewritten single-packet PMT and the PIDs it dropped, or null to leave the
-// packet untouched (not a start-of-section PMT, spans multiple packets, or nothing to drop).
-function rewritePmt(packet: Buffer): { packet: Buffer; dropped: number[] } | null {
+interface PmtInfo {
+  sectionStart: number;
+  esStart: number;
+  pcrPid: number;
+  entries: EsEntry[];
+}
+
+// Reads a single-packet PMT (start-of-section only) into its elementary-stream entries.
+function readPmt(packet: Buffer): PmtInfo | null {
   if (!(packet[1] & 0x40)) return null;
   const start = payloadOffset(packet);
   const sectionStart = start + 1 + packet[start];
@@ -102,8 +108,46 @@ function rewritePmt(packet: Buffer): { packet: Buffer; dropped: number[] } | nul
     });
     i = entryEnd;
   }
+  return { sectionStart, esStart, pcrPid, entries };
+}
 
-  const hasAac = entries.some((e) => e.streamType === STREAM_AAC_ADTS || e.streamType === STREAM_AAC_LATM);
+function isAac(e: EsEntry): boolean {
+  return e.streamType === STREAM_AAC_ADTS || e.streamType === STREAM_AAC_LATM;
+}
+
+function isUnplayableAudio(e: EsEntry): boolean {
+  if (e.streamType === STREAM_EAC3 || e.streamType === STREAM_EAC3_SAMPLE_AES || e.streamType === STREAM_AC3) return true;
+  return e.streamType === STREAM_PES_PRIVATE && e.descriptorTags.some((t) => PRIVATE_UNSUPPORTED_AUDIO_DESCRIPTORS.has(t));
+}
+
+// True when the start of a segment shows audio the browser can't decode and no AAC track to
+// fall back to - i.e. dropping tracks (createTsAudioFilter) would leave the channel silent,
+// so the audio has to be transcoded instead.
+export function audioNeedsTranscode(head: Buffer): boolean {
+  if (head.length < PACKET_SIZE || head[0] !== SYNC_BYTE) return false;
+  let pmtPid: number | null = null;
+  for (let i = 0; i + PACKET_SIZE <= head.length; i += PACKET_SIZE) {
+    const packet = head.subarray(i, i + PACKET_SIZE);
+    if (packet[0] !== SYNC_BYTE) return false;
+    const pid = packetPid(packet);
+    if (pid === 0) pmtPid = findPmtPid(packet) ?? pmtPid;
+    else if (pid === pmtPid) {
+      const pmt = readPmt(packet);
+      if (!pmt) continue;
+      return pmt.entries.some(isUnplayableAudio) && !pmt.entries.some(isAac);
+    }
+  }
+  return false;
+}
+
+// Returns a rewritten single-packet PMT and the PIDs it dropped, or null to leave the
+// packet untouched (not a start-of-section PMT, spans multiple packets, or nothing to drop).
+function rewritePmt(packet: Buffer): { packet: Buffer; dropped: number[] } | null {
+  const pmt = readPmt(packet);
+  if (!pmt) return null;
+  const { sectionStart, esStart, pcrPid, entries } = pmt;
+
+  const hasAac = entries.some(isAac);
   // E-AC-3 always goes (hls.js aborts on it). AC-3 and private-PES AC-3/E-AC-3/DTS only go
   // when an AAC track exists to fall back to, so a channel with nothing else keeps its entry.
   const shouldDrop = (e: EsEntry): boolean => {
