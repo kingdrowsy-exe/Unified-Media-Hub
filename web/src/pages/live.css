@@ -804,85 +804,6 @@
   font-weight: 600;
 }
 
-/* ---------- sub-category tiles ---------- */
-
-.subcats {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.subcats__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
-.subcats__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 12px;
-}
-
-.subcat {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-  padding: 12px;
-  border-radius: var(--r);
-  background: var(--surface);
-  text-align: left;
-  transition: background 0.15s ease;
-}
-
-.subcat:hover,
-.subcat:focus-visible {
-  background: var(--raised);
-}
-
-.subcat__strip {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 4px;
-  margin-bottom: 10px;
-}
-
-.subcat__cell {
-  display: grid;
-  place-items: center;
-  aspect-ratio: 16 / 10;
-  border-radius: 6px;
-  background: var(--raised);
-  overflow: hidden;
-}
-
-.subcat:hover .subcat__cell {
-  background: var(--black);
-}
-
-.subcat__cell img {
-  width: 74%;
-  height: 74%;
-  object-fit: contain;
-}
-
-.subcat__name {
-  display: block;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.subcat__meta {
-  display: block;
-  font-size: 12px;
-  color: var(--muted);
-}
-
 /* ---------- compact rows: logo stays inside its box, long names get an ellipsis ---------- */
 
 .chrow__thumb {
@@ -919,4 +840,299 @@
 .chrow__now,
 .chrow__time {
   width: 100%;
+}
+
+/* ---------- sub-category browser ---------- */
+
+.subcats {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  position: relative;
+}
+
+.subcats__eyebrow {
+  margin: 0;
+  font: 600 12px var(--body);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.subcats__pins {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.subcats__pingrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.subcats__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+}
+
+.subcats__search {
+  flex: 1 1 240px;
+  max-width: 380px;
+}
+
+.subcats__sections {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.subcats__letter {
+  scroll-margin-top: 8px;
+}
+
+.subcats__heading {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  padding: 8px 0;
+  background: linear-gradient(var(--black) 70%, transparent);
+}
+
+.subcats__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.is-list .subcats__cards {
+  grid-template-columns: 1fr;
+  gap: 2px;
+}
+
+.scard {
+  position: relative;
+  min-width: 0;
+  border-radius: var(--r);
+  background: var(--surface);
+  transition: background 0.15s ease;
+}
+
+.scard:hover,
+.scard:focus-within {
+  background: var(--raised);
+}
+
+.scard--big {
+  background: var(--raised);
+  border-radius: var(--r-lg);
+}
+
+.scard--big:hover {
+  background: var(--hover);
+}
+
+.scard__main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  padding: 10px 48px 10px 10px;
+  text-align: left;
+}
+
+.scard--big .scard__main {
+  gap: 14px;
+  padding: 14px 48px 14px 14px;
+}
+
+.scard__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.scard__name {
+  display: block;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.scard__count {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.is-list .scard__main {
+  padding: 8px 48px 8px 10px;
+}
+
+.is-list .scard__text {
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+}
+
+.is-list .scard__name {
+  flex: 1;
+}
+
+.scard__star {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  width: 32px;
+  height: 32px;
+  margin-top: -16px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.scard:hover .scard__star,
+.scard__star:focus-visible,
+.scard__star.is-on,
+.scard--big .scard__star {
+  opacity: 1;
+}
+
+.scard__star:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.scard__star.is-on {
+  color: var(--accent);
+}
+
+.scard__star.is-on svg {
+  fill: currentColor;
+}
+
+@media (hover: none) {
+  .scard__star {
+    opacity: 1;
+  }
+}
+
+/* logo tile: league marks sit on a light badge so dark logos (Premier League, Champions League) stay readable */
+
+.mark {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r);
+  background: var(--raised);
+  overflow: hidden;
+}
+
+.scard:hover .mark:not(.mark--league) {
+  background: var(--black);
+}
+
+.scard--big .mark {
+  width: 64px;
+  height: 64px;
+}
+
+.is-list .mark {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+}
+
+.mark img {
+  width: 72%;
+  height: 72%;
+  object-fit: contain;
+}
+
+.mark--league {
+  background: #eef0f4;
+}
+
+.mark__blank {
+  font: 800 16px var(--display);
+  letter-spacing: -0.04em;
+  color: var(--muted);
+}
+
+/* A-Z jump strip */
+
+.jump {
+  position: fixed;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  padding: 6px 4px;
+  border-radius: 12px;
+  background: rgba(18, 18, 18, 0.92);
+}
+
+.jump button {
+  width: 24px;
+  height: 20px;
+  border-radius: 6px;
+  font: 600 11px var(--body);
+  color: var(--text);
+}
+
+.jump button:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.jump button:disabled {
+  color: #48484a;
+  cursor: default;
+}
+
+@media (max-width: 960px) {
+  .jump {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .subcats__pingrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .live__titlebar {
+    flex-wrap: wrap;
+    row-gap: 12px;
+  }
+
+  .live__spacer {
+    display: none;
+  }
+
+  .live__titlebar .seg {
+    width: 100%;
+  }
+
+  .live__titlebar .seg button {
+    flex: 1;
+    justify-content: center;
+    padding: 0 8px;
+  }
 }

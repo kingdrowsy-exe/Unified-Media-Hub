@@ -20,6 +20,20 @@ const ROW_SIZE = 16;
 const TOP_GROUPS = 7;
 const RECENT_MAX = 12;
 
+const PINS_KEY = "umh.pinnedCategories";
+const DEFAULT_PIN_LABELS = new Set(["NFL", "NCAA Football", "MLB", "NHL"]);
+
+function readPins(): string[] | null {
+  try {
+    const raw = localStorage.getItem(PINS_KEY);
+    if (raw === null) return null;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((s) => typeof s === "string") : null;
+  } catch {
+    return null;
+  }
+}
+
 function filterKey(f: LiveFilter): string {
   return f.kind === "all" ? "all" : f.kind === "group" ? `g:${f.group}` : `c:${f.category}`;
 }
@@ -157,6 +171,7 @@ export default function Live() {
   const [resolution, setResolution] = useState<string | null>(null);
   const [favorites, setFavorites] = useStoredIds("umh.favorites");
   const [recent, setRecent] = useStoredIds("umh.recent");
+  const [storedPins, setStoredPins] = useState<string[] | null>(readPins);
   const topRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -231,6 +246,23 @@ export default function Live() {
     }
     return m;
   }, [channels]);
+
+  // Until the user pins something themselves, the big four US leagues are pinned in Sports.
+  const pinnedCategories = useMemo(() => {
+    if (storedPins) return storedPins;
+    const sports = groups.find((g) => g.group === "Sports");
+    return sports ? sports.categories.filter((c) => DEFAULT_PIN_LABELS.has(c.label)).map((c) => c.name) : [];
+  }, [storedPins, groups]);
+
+  function togglePin(category: string) {
+    const next = pinnedCategories.includes(category) ? pinnedCategories.filter((c) => c !== category) : [...pinnedCategories, category];
+    setStoredPins(next);
+    try {
+      localStorage.setItem(PINS_KEY, JSON.stringify(next));
+    } catch {
+      // storage unavailable: pins last until the page closes
+    }
+  }
 
   const topGroups = useMemo(
     () =>
@@ -481,6 +513,8 @@ export default function Live() {
               group={activeGroup}
               counts={categoryCounts}
               logos={categoryLogos}
+              pinned={pinnedCategories}
+              onTogglePin={togglePin}
               total={results.length}
               onPick={(category) => setFilter({ kind: "category", category })}
               onShowAll={() => setFlat(true)}
