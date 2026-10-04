@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { CategoryGroup } from "../../utils/categoryGroups.js";
 import Icon from "../../ui/Icon.js";
+import { compareAlpha } from "../../utils/alpha.js";
 import SafeImg from "../../ui/SafeImg.js";
 
 interface SubCategoryGridProps {
@@ -19,9 +20,9 @@ export default function SubCategoryGrid({ group, counts, logos, total, onPick, o
 
   const shown = useMemo(() => {
     const q = needle.trim().toLowerCase();
-    const list = [...group.categories].sort((a, b) => (counts.get(b.name) ?? 0) - (counts.get(a.name) ?? 0));
+    const list = [...group.categories].sort((a, b) => compareAlpha(a.label, b.label));
     return q ? list.filter((c) => c.label.toLowerCase().includes(q)) : list;
-  }, [group, counts, needle]);
+  }, [group, needle]);
 
   return (
     <div className="subcats">

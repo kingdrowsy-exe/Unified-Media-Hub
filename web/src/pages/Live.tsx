@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ApiError, Channel, fetchChannels, streamUrlFor } from "../api.js";
 import { epgProgress, formatClock, useNowPlaying } from "../hooks/useEpg.js";
 import { useInView } from "../hooks/useInView.js";
+import { sortAlpha } from "../utils/alpha.js";
 import { groupCategories } from "../utils/categoryGroups.js";
 import { qualityFromName, stripQualityFromName } from "../utils/quality.js";
 import Icon from "../ui/Icon.js";
@@ -161,7 +162,7 @@ export default function Live() {
   useEffect(() => {
     fetchChannels()
       .then((res) => {
-        setChannels(res.channels);
+        setChannels(sortAlpha(res.channels, (c) => c.name));
         setCategories(res.categories);
       })
       .catch((err) => {
@@ -176,7 +177,14 @@ export default function Live() {
   useEffect(() => setResolution(null), [playing?.id]);
 
   const byId = useMemo(() => new Map(channels.map((c) => [c.id, c])), [channels]);
-  const groups = useMemo(() => groupCategories(categories), [categories]);
+  const groups = useMemo(
+    () =>
+      sortAlpha(groupCategories(categories), (g) => g.group).map((g) => ({
+        ...g,
+        categories: sortAlpha(g.categories, (c) => c.label),
+      })),
+    [categories],
+  );
 
   const categoryCounts = useMemo(() => {
     const m = new Map<string, number>();
@@ -230,7 +238,8 @@ export default function Live() {
         .filter((g) => g.group !== "Other")
         .map((g) => ({ group: g.group, count: groupCounts.get(g.group) ?? 0 }))
         .sort((a, b) => b.count - a.count)
-        .slice(0, TOP_GROUPS),
+        .slice(0, TOP_GROUPS)
+        .sort((a, b) => a.group.localeCompare(b.group, undefined, { numeric: true, sensitivity: "base" })),
     [groups, groupCounts],
   );
 
@@ -269,7 +278,10 @@ export default function Live() {
     setFavorites(favorites.includes(channel.id) ? favorites.filter((id) => id !== channel.id) : [channel.id, ...favorites]);
   }
 
-  const favoriteChannels = favorites.map((id) => byId.get(id)).filter((c): c is Channel => !!c);
+  const favoriteChannels = sortAlpha(
+    favorites.map((id) => byId.get(id)).filter((c): c is Channel => !!c),
+    (c) => c.name,
+  );
   const recentChannels = recent.map((id) => byId.get(id)).filter((c): c is Channel => !!c);
   const spotlightChannel = recentChannels[0] ?? favoriteChannels[0] ?? channels.find((c) => c.icon) ?? channels[0];
 

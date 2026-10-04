@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { CategoryGroup } from "../../utils/categoryGroups.js";
 import Icon from "../../ui/Icon.js";
+import { compareAlpha } from "../../utils/alpha.js";
 import SafeImg from "../../ui/SafeImg.js";
 
 export type LiveFilter = { kind: "all" } | { kind: "group"; group: string } | { kind: "category"; category: string };
@@ -20,10 +21,13 @@ export default function CategoryGrid({ groups, groupCounts, logos, total, onPick
 
   const shown = useMemo(() => {
     const q = needle.trim().toLowerCase();
-    const list = [...groups].sort((a, b) => (groupCounts.get(b.group) ?? 0) - (groupCounts.get(a.group) ?? 0));
+    // Alphabetical, with the catch-all "Other" group last.
+    const list = [...groups].sort((a, b) =>
+      a.group === "Other" ? 1 : b.group === "Other" ? -1 : compareAlpha(a.group, b.group),
+    );
     if (!q) return list;
     return list.filter((g) => g.group.toLowerCase().includes(q) || g.categories.some((c) => c.name.toLowerCase().includes(q)));
-  }, [groups, groupCounts, needle]);
+  }, [groups, needle]);
 
   return (
     <div className="cats">
