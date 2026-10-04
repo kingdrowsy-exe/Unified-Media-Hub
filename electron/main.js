@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu } from "electron";
+import { app, BrowserWindow, Menu, screen } from "electron";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -24,9 +24,20 @@ async function createWindow() {
   const { startServer } = await import("../server/dist/index.js");
   await startServer();
 
+  // Open at 1920x1080 (the page area, excluding the title bar), centred on the screen the cursor is on.
+  // On a smaller screen it shrinks to what fits, so the window is never taller than the usable area.
+  const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  const area = display.workArea;
+  const TITLE_BAR_ALLOWANCE = 40;
+  const width = Math.min(1920, area.width);
+  const height = Math.min(1080, area.height - TITLE_BAR_ALLOWANCE);
+
   mainWindow = new BrowserWindow({
-    width: 1360,
-    height: 860,
+    width,
+    height,
+    useContentSize: true,
+    x: Math.round(area.x + (area.width - width) / 2),
+    y: Math.round(area.y + (area.height - (height + TITLE_BAR_ALLOWANCE)) / 2),
     minWidth: 900,
     minHeight: 600,
     backgroundColor: "#000000",
