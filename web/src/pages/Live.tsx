@@ -11,16 +11,13 @@ import MediaPlayer from "../ui/MediaPlayer.js";
 import Row from "../ui/Row.js";
 import CategoryGrid, { LiveFilter } from "./live/CategoryGrid.js";
 import ChannelCard from "./live/ChannelCard.js";
+import SubCategoryGrid from "./live/SubCategoryGrid.js";
 import "./live.css";
 
 const PAGE_SIZE = 60;
 const ROW_SIZE = 16;
 const TOP_GROUPS = 7;
 const RECENT_MAX = 12;
-
-function activeGroupName(f: LiveFilter): string {
-  return f.kind === "category" ? f.category.split(" | ")[0] : "";
-}
 
 function filterKey(f: LiveFilter): string {
   return f.kind === "all" ? "all" : f.kind === "group" ? `g:${f.group}` : `c:${f.category}`;
@@ -93,14 +90,30 @@ function Spotlight({ channel, onPlay }: { channel: Channel; onPlay: (c: Channel)
   );
 }
 
-function NowInfo({ channel, favorite, onFavorite }: { channel: Channel; favorite: boolean; onFavorite: () => void }) {
+function NowInfo({
+  channel,
+  favorite,
+  onFavorite,
+  resolution,
+}: {
+  channel: Channel;
+  favorite: boolean;
+  onFavorite: () => void;
+  resolution: string | null;
+}) {
   const now = useNowPlaying(channel.id, true);
   const progress = epgProgress(now);
   const quality = qualityFromName(channel.name);
   const name = quality ? stripQualityFromName(channel.name) : channel.name;
+  const shownQuality = resolution ?? quality ?? null;
   return (
     <div className="nowinfo">
       <div className="nowinfo__text">
+        <div className="nowinfo__tags">
+          <span className="tag tag--live">LIVE</span>
+          <span className={`tag ${shownQuality === "4K" ? "tag--accent" : ""}`}>{shownQuality ?? "Detecting…"}</span>
+          <span className="tag">{channel.category}</span>
+        </div>
         <h1 className="h2 nowinfo__title">{now ? now.title : name}</h1>
         <p className="muted">
           {name} · {channel.category}
@@ -139,7 +152,8 @@ export default function Live() {
   const [filter, setFilter] = useState<LiveFilter>({ kind: "all" });
   const [query, setQuery] = useState("");
   const [limit, setLimit] = useState(PAGE_SIZE);
-  const [subsOpen, setSubsOpen] = useState(false);
+  const [flat, setFlat] = useState(false);
+  const [resolution, setResolution] = useState<string | null>(null);
   const [favorites, setFavorites] = useStoredIds("umh.favorites");
   const [recent, setRecent] = useStoredIds("umh.recent");
   const topRef = useRef<HTMLDivElement>(null);
@@ -158,7 +172,8 @@ export default function Live() {
   }, []);
 
   useEffect(() => setLimit(PAGE_SIZE), [filter, query, view]);
-  useEffect(() => setSubsOpen(false), [filter.kind === "group" ? filter.group : activeGroupName(filter)]);
+  useEffect(() => setFlat(false), [filter]);
+  useEffect(() => setResolution(null), [playing?.id]);
 
   const byId = useMemo(() => new Map(channels.map((c) => [c.id, c])), [channels]);
   const groups = useMemo(() => groupCategories(categories), [categories]);
@@ -196,6 +211,19 @@ export default function Live() {
     return m;
   }, [channels, groupOf]);
 
+  const categoryLogos = useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const c of channels) {
+      if (!c.icon) continue;
+      const list = m.get(c.category) ?? [];
+      if (list.length < 3 && !list.includes(c.icon)) {
+        list.push(c.icon);
+        m.set(c.category, list);
+      }
+    }
+    return m;
+  }, [channels]);
+
   const topGroups = useMemo(
     () =>
       groups
@@ -225,6 +253,8 @@ export default function Live() {
     if (filter.kind === "category") return groups.find((g) => g.group === groupOf.get(filter.category));
     return undefined;
   }, [filter, groups, groupOf]);
+
+  const showTiles = filter.kind === "group" && !!activeGroup && activeGroup.categories.length > 1 && !flat && !query.trim() && view === "browse";
 
   const browsing = view === "browse" && filter.kind === "all" && !query.trim();
   const activeLabel = filter.kind === "all" ? "All channels" : filter.kind === "group" ? filter.group : filter.category;
@@ -280,8 +310,14 @@ export default function Live() {
               theater={theater}
               onToggleTheater={() => setTheater((t) => !t)}
               onClose={() => setPlaying(null)}
+              onQuality={setResolution}
             />
-            <NowInfo channel={playing} favorite={favorites.includes(playing.id)} onFavorite={() => toggleFavorite(playing)} />
+            <NowInfo
+              channel={playing}
+              favorite={favorites.includes(playing.id)}
+              onFavorite={() => toggleFavorite(playing)}
+              resolution={resolution}
+            />
           </div>
           <aside className="watch__side">
             <h2 className="h3">More in {filter.kind === "all" ? playing.category : activeLabel}</h2>
@@ -392,40 +428,41 @@ export default function Live() {
         </div>
       ) : (
         <div className="live__results">
-          {activeGroup && activeGroup.categories.length > 1 && (
-            <div className={`live__subchips ${subsOpen ? "is-open" : ""}`} aria-label={`${activeGroup.group} categories`}>
-              <button
-                type="button"
-                className="chip"
-                aria-pressed={filter.kind === "group"}
-                onClick={() => setFilter({ kind: "group", group: activeGroup.group })}
-              >
-                All {activeGroup.group}
+          {activeGroup && !query.trim() && (
+            <nav className="crumbs" aria-label="Category path">
+              <button type="button" onClick={() => setView("categories")}>
+                Categories
               </button>
-              {activeGroup.categories.map((c) => (
-                <button
-                  key={c.name}
-                  type="button"
-                  className="chip"
-                  aria-pressed={filter.kind === "category" && filter.category === c.name}
-                  onClick={() => setFilter({ kind: "category", category: c.name })}
-                >
-                  {c.label}
-                  <span className="chip__count nums">{categoryCounts.get(c.name) ?? 0}</span>
-                </button>
-              ))}
-              {activeGroup.categories.length > 12 && (
-                <button type="button" className="chip chip--link live__subtoggle" onClick={() => setSubsOpen(!subsOpen)}>
-                  {subsOpen ? "Show fewer" : `Show all ${activeGroup.categories.length}`}
-                </button>
+              <Icon name="next" size={14} />
+              {filter.kind === "category" ? (
+                <>
+                  <button type="button" onClick={() => setFilter({ kind: "group", group: activeGroup.group })}>
+                    {activeGroup.group}
+                  </button>
+                  <Icon name="next" size={14} />
+                  <span>{activeGroup.categories.find((c) => c.name === filter.category)?.label ?? filter.category}</span>
+                </>
+              ) : (
+                <span>{activeGroup.group}</span>
               )}
+            </nav>
+          )}
+          {!showTiles && (
+            <div className="live__summary">
+              <h2 className="h3">{query.trim() ? `Results for "${query.trim()}"` : activeLabel}</h2>
+              <span className="muted nums">{results.length.toLocaleString()} channels</span>
             </div>
           )}
-          <div className="live__summary">
-            <h2 className="h3">{query.trim() ? `Results for "${query.trim()}"` : activeLabel}</h2>
-            <span className="muted nums">{results.length.toLocaleString()} channels</span>
-          </div>
-          {results.length === 0 ? (
+          {showTiles && activeGroup ? (
+            <SubCategoryGrid
+              group={activeGroup}
+              counts={categoryCounts}
+              logos={categoryLogos}
+              total={results.length}
+              onPick={(category) => setFilter({ kind: "category", category })}
+              onShowAll={() => setFlat(true)}
+            />
+          ) : results.length === 0 ? (
             <div className="status">No channels match.</div>
           ) : view === "guide" ? (
             <div className="guide">
@@ -436,7 +473,7 @@ export default function Live() {
           ) : (
             <div className="live__grid">{results.slice(0, limit).map(card)}</div>
           )}
-          {results.length > limit && (
+          {!showTiles && results.length > limit && (
             <div className="live__more">
               <button type="button" className="btn" onClick={() => setLimit(limit + PAGE_SIZE)}>
                 Show more

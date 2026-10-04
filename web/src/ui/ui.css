@@ -197,3 +197,19 @@
     grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
   }
 }
+
+/* titles and metadata never spill into the next card */
+.poster {
+  min-width: 0;
+}
+
+.poster__title,
+.poster__meta {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+.poster__art {
+  width: 100%;
+}

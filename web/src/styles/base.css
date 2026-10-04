@@ -483,3 +483,12 @@ p {
     scroll-behavior: auto !important;
   }
 }
+
+/* the stage is the only scroller; nothing may push the app sideways */
+body {
+  overflow: hidden;
+}
+
+.stage {
+  overflow-x: hidden;
+}

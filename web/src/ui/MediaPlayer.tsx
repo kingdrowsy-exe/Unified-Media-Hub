@@ -18,6 +18,8 @@ interface MediaPlayerProps {
   theater?: boolean;
   onToggleTheater?: () => void;
   onClose?: () => void;
+  /** Called with the real decoded resolution label (e.g. "1080p") once the first frame is known. */
+  onQuality?: (quality: string) => void;
 }
 
 const HIDE_DELAY = 2800;
@@ -45,7 +47,10 @@ export default function MediaPlayer({
   theater,
   onToggleTheater,
   onClose,
+  onQuality,
 }: MediaPlayerProps) {
+  const onQualityRef = useRef(onQuality);
+  onQualityRef.current = onQuality;
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const boxRef = useRef<HTMLDivElement | null>(null);
   const trackRef = useRef<HTMLDivElement | null>(null);
@@ -111,7 +116,11 @@ export default function MediaPlayer({
       playing: () => setBuffering(false),
       canplay: () => setBuffering(false),
       resize: () => {
-        if (v.videoWidth && v.videoHeight) setQuality(qualityFromResolution(v.videoWidth, v.videoHeight));
+        if (v.videoWidth && v.videoHeight) {
+          const q = qualityFromResolution(v.videoWidth, v.videoHeight);
+          setQuality(q);
+          onQualityRef.current?.(q);
+        }
       },
     };
     for (const [name, fn] of Object.entries(on)) v.addEventListener(name, fn);

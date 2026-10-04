@@ -12,7 +12,7 @@
 
 .mp--theater {
   aspect-ratio: auto;
-  height: min(76vh, calc((100vw - var(--rail) - 2 * var(--pad)) * 9 / 16));
+  height: max(420px, calc(100vh - 112px));
 }
 
 .mp:fullscreen {

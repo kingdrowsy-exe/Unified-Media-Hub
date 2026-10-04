@@ -29,9 +29,9 @@ async function createWindow() {
     height: 860,
     minWidth: 900,
     minHeight: 600,
-    backgroundColor: "#0a0a12",
+    backgroundColor: "#000000",
     autoHideMenuBar: true,
-    icon: path.join(__dirname, "../build/icon.ico"),
+    icon: app.isPackaged ? path.join(process.resourcesPath, "icon.ico") : path.join(__dirname, "../build/icon.ico"),
   });
 
   mainWindow.loadURL(`http://localhost:${PORT}`);
