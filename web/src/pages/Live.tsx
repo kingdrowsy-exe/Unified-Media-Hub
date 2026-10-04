@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { ApiError, Channel, fetchChannels, streamUrlFor } from "../api.js";
 import { epgProgress, formatClock, useNowPlaying } from "../hooks/useEpg.js";
 import { useInView } from "../hooks/useInView.js";
@@ -284,6 +284,17 @@ export default function Live() {
   );
   const recentChannels = recent.map((id) => byId.get(id)).filter((c): c is Channel => !!c);
   const spotlightChannel = recentChannels[0] ?? favoriteChannels[0] ?? channels.find((c) => c.icon) ?? channels[0];
+
+  // /live?play=ID (from the Sports page) starts that channel as soon as the list is loaded.
+  const [params, setParams] = useSearchParams();
+  useEffect(() => {
+    const id = Number(params.get("play"));
+    if (!id || channels.length === 0) return;
+    const target = byId.get(id);
+    if (target) play(target);
+    setParams({}, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [channels, params]);
 
   const card = (c: Channel) => (
     <ChannelCard

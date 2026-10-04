@@ -3,12 +3,14 @@ import { Navigate, NavLink, Route, Routes } from "react-router-dom";
 import Live from "./pages/Live.js";
 import OnDemand from "./pages/OnDemand.js";
 import Search from "./pages/Search.js";
+import Sports from "./pages/Sports.js";
 import Settings from "./pages/Settings.js";
 import { fetchSettingsStatus } from "./api.js";
 import Icon, { IconName } from "./ui/Icon.js";
 
 const NAV: { to: string; label: string; icon: IconName }[] = [
   { to: "/live", label: "Live TV", icon: "live" },
+  { to: "/sports", label: "Sports", icon: "trophy" },
   { to: "/ondemand", label: "On Demand", icon: "film" },
   { to: "/search", label: "Search", icon: "search" },
 ];
@@ -49,6 +51,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={defaultRoute ? <Navigate to={defaultRoute} replace /> : null} />
           <Route path="/live" element={<Live />} />
+          <Route path="/sports" element={<Sports />} />
           <Route path="/ondemand" element={<OnDemand />} />
           <Route path="/search" element={<Search />} />
           <Route path="/settings" element={<Settings />} />

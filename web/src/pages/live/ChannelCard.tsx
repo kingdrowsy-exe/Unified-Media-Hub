@@ -44,11 +44,11 @@ export default function ChannelCard({ channel, active, favorite, onPlay, onToggl
           </span>
           <span className="chrow__text">
             <span className="chrow__name">
-              {name}
+              <span className="chrow__label">{name}</span>
               {quality && <span className={`tag ${quality === "4K" ? "tag--accent" : ""}`}>{quality}</span>}
             </span>
             <span className="chrow__now">{now ? now.title : channel.category}</span>
-            <span className="chrow__time nums">{timeLine}</span>
+            {now && <span className="chrow__time nums">{timeLine}</span>}
           </span>
         </button>
       </div>

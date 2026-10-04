@@ -12,6 +12,7 @@ import { settingsRoutes } from "./routes/settings.js";
 import { popularRoutes } from "./routes/popular.js";
 import { detailsRoutes } from "./routes/details.js";
 import { traktRoutes } from "./routes/trakt.js";
+import { sportsRoutes } from "./routes/sports.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -49,6 +50,7 @@ export async function startServer() {
   await app.register(streamRoutes);
   await app.register(detailsRoutes);
   await app.register(traktRoutes);
+  await app.register(sportsRoutes);
 
   const webDist = path.join(__dirname, "../../web/dist");
   await app.register(fastifyStatic, { root: webDist, wildcard: false });

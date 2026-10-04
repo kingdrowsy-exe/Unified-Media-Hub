@@ -301,3 +301,36 @@ export function fetchTraktWatchlist(): Promise<{ items: PopularItem[]; configure
 export function fetchTraktRecommendations(): Promise<{ items: PopularItem[]; configured: boolean }> {
   return getJson("/api/trakt/recommendations");
 }
+
+export type LeagueId = "nfl" | "ncaaf" | "mlb" | "nhl";
+
+export interface SportsTeam {
+  abbr: string;
+  name: string;
+  short: string;
+  logo?: string;
+  score?: number;
+  rank?: number;
+  record?: string;
+  winner?: boolean;
+}
+
+export interface SportsGame {
+  id: string;
+  league: LeagueId;
+  startTime: string;
+  state: "pre" | "in" | "post";
+  detail: string;
+  away: SportsTeam;
+  home: SportsTeam;
+  network?: string;
+  odds?: string;
+  featured: boolean;
+}
+
+export function fetchScoreboard(league: LeagueId, date?: string): Promise<{ league: LeagueId; label: string; games: SportsGame[] }> {
+  const url = new URL("/api/sports/scoreboard", window.location.origin);
+  url.searchParams.set("league", league);
+  if (date) url.searchParams.set("date", date);
+  return getJson(url.toString());
+}

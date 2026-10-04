@@ -73,6 +73,12 @@ const PATHS: Record<string, ReactNode> = {
     </>
   ),
   tag: <path d="M3 12V4h8l9 9-8 8zM8 8h.01" />,
+  trophy: (
+    <>
+      <path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H4.5v1.5A3 3 0 0 0 8 10.5M16 6h3.5v1.5A3 3 0 0 1 16 10.5" />
+      <path d="M12 13v4M8.5 20h7M9.5 17h5v3h-5z" />
+    </>
+  ),
 };
 
 export type IconName = keyof typeof PATHS;
