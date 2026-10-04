@@ -6,9 +6,10 @@ import { useInView } from "../hooks/useInView.js";
 import { groupCategories } from "../utils/categoryGroups.js";
 import { qualityFromName, stripQualityFromName } from "../utils/quality.js";
 import Icon from "../ui/Icon.js";
+import SafeImg from "../ui/SafeImg.js";
 import MediaPlayer from "../ui/MediaPlayer.js";
 import Row from "../ui/Row.js";
-import CategorySheet, { LiveFilter } from "./live/CategorySheet.js";
+import CategoryGrid, { LiveFilter } from "./live/CategoryGrid.js";
 import ChannelCard from "./live/ChannelCard.js";
 import "./live.css";
 
@@ -16,6 +17,10 @@ const PAGE_SIZE = 60;
 const ROW_SIZE = 16;
 const TOP_GROUPS = 7;
 const RECENT_MAX = 12;
+
+function activeGroupName(f: LiveFilter): string {
+  return f.kind === "category" ? f.category.split(" | ")[0] : "";
+}
 
 function filterKey(f: LiveFilter): string {
   return f.kind === "all" ? "all" : f.kind === "group" ? `g:${f.group}` : `c:${f.category}`;
@@ -58,7 +63,7 @@ function Spotlight({ channel, onPlay }: { channel: Channel; onPlay: (c: Channel)
   return (
     <section className="spot" ref={ref}>
       <div className="spot__logo">
-        {channel.icon ? <img src={channel.icon} alt="" /> : <span>{name.slice(0, 2).toUpperCase()}</span>}
+        <SafeImg src={channel.icon} fallback={<span>{name.slice(0, 2).toUpperCase()}</span>} />
       </div>
       <div className="spot__body">
         <div className="spot__tags">
@@ -130,11 +135,11 @@ export default function Live() {
 
   const [playing, setPlaying] = useState<Channel | null>(null);
   const [theater, setTheater] = useState(false);
-  const [view, setView] = useState<"browse" | "guide">("browse");
+  const [view, setView] = useState<"browse" | "guide" | "categories">("browse");
   const [filter, setFilter] = useState<LiveFilter>({ kind: "all" });
   const [query, setQuery] = useState("");
-  const [sheetOpen, setSheetOpen] = useState(false);
   const [limit, setLimit] = useState(PAGE_SIZE);
+  const [subsOpen, setSubsOpen] = useState(false);
   const [favorites, setFavorites] = useStoredIds("umh.favorites");
   const [recent, setRecent] = useStoredIds("umh.recent");
   const topRef = useRef<HTMLDivElement>(null);
@@ -153,6 +158,7 @@ export default function Live() {
   }, []);
 
   useEffect(() => setLimit(PAGE_SIZE), [filter, query, view]);
+  useEffect(() => setSubsOpen(false), [filter.kind === "group" ? filter.group : activeGroupName(filter)]);
 
   const byId = useMemo(() => new Map(channels.map((c) => [c.id, c])), [channels]);
   const groups = useMemo(() => groupCategories(categories), [categories]);
@@ -174,6 +180,21 @@ export default function Live() {
     for (const g of groups) for (const c of g.categories) m.set(c.name, g.group);
     return m;
   }, [groups]);
+
+  const groupLogos = useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const c of channels) {
+      if (!c.icon) continue;
+      const g = groupOf.get(c.category);
+      if (!g) continue;
+      const list = m.get(g) ?? [];
+      if (list.length < 4 && !list.includes(c.icon)) {
+        list.push(c.icon);
+        m.set(g, list);
+      }
+    }
+    return m;
+  }, [channels, groupOf]);
 
   const topGroups = useMemo(
     () =>
@@ -198,6 +219,12 @@ export default function Live() {
     const q = query.trim().toLowerCase();
     return channels.filter((c) => inFilter(c) && (!q || c.name.toLowerCase().includes(q)));
   }, [channels, inFilter, query]);
+
+  const activeGroup = useMemo(() => {
+    if (filter.kind === "group") return groups.find((g) => g.group === filter.group);
+    if (filter.kind === "category") return groups.find((g) => g.group === groupOf.get(filter.category));
+    return undefined;
+  }, [filter, groups, groupOf]);
 
   const browsing = view === "browse" && filter.kind === "all" && !query.trim();
   const activeLabel = filter.kind === "all" ? "All channels" : filter.kind === "group" ? filter.group : filter.category;
@@ -284,6 +311,10 @@ export default function Live() {
               <Icon name="list" size={18} />
               Guide
             </button>
+            <button type="button" aria-pressed={view === "categories"} onClick={() => setView("categories")}>
+              <Icon name="tag" size={18} />
+              Categories
+            </button>
           </div>
         </div>
         <div className="live__search">
@@ -297,7 +328,11 @@ export default function Live() {
           />
         </div>
         <div className="chips live__chips">
-          <button type="button" className="chip" aria-pressed={filter.kind === "all"} onClick={() => setFilter({ kind: "all" })}>
+          <button type="button" className="chip" aria-pressed={filter.kind === "all"} onClick={() => {
+              setFilter({ kind: "all" });
+              if (view === "categories") setView("browse");
+            }}
+          >
             All
           </button>
           {topGroups.map((g) => {
@@ -308,21 +343,35 @@ export default function Live() {
                 type="button"
                 className="chip"
                 aria-pressed={filterKey(filter) === filterKey(f)}
-                onClick={() => setFilter(f)}
+                onClick={() => {
+                  setFilter(f);
+                  setView(view === "categories" ? "browse" : view);
+                }}
               >
                 {g.group}
                 <span className="chip__count nums">{g.count}</span>
               </button>
             );
           })}
-          <button type="button" className="chip chip--link" onClick={() => setSheetOpen(true)}>
+          <button type="button" className="chip chip--link" onClick={() => setView("categories")}>
             All categories
             <Icon name="next" size={16} />
           </button>
         </div>
       </header>
 
-      {browsing ? (
+      {view === "categories" ? (
+        <CategoryGrid
+          groups={groups}
+          groupCounts={groupCounts}
+          logos={groupLogos}
+          total={channels.length}
+          onPick={(f) => {
+            setFilter(f);
+            setView("browse");
+          }}
+        />
+      ) : browsing ? (
         <div className="live__rows">
           {!playing && spotlightChannel && <Spotlight channel={spotlightChannel} onPlay={play} />}
           {recentChannels.length > 0 && <Row title="Recently watched">{recentChannels.map(card)}</Row>}
@@ -343,6 +392,35 @@ export default function Live() {
         </div>
       ) : (
         <div className="live__results">
+          {activeGroup && activeGroup.categories.length > 1 && (
+            <div className={`live__subchips ${subsOpen ? "is-open" : ""}`} aria-label={`${activeGroup.group} categories`}>
+              <button
+                type="button"
+                className="chip"
+                aria-pressed={filter.kind === "group"}
+                onClick={() => setFilter({ kind: "group", group: activeGroup.group })}
+              >
+                All {activeGroup.group}
+              </button>
+              {activeGroup.categories.map((c) => (
+                <button
+                  key={c.name}
+                  type="button"
+                  className="chip"
+                  aria-pressed={filter.kind === "category" && filter.category === c.name}
+                  onClick={() => setFilter({ kind: "category", category: c.name })}
+                >
+                  {c.label}
+                  <span className="chip__count nums">{categoryCounts.get(c.name) ?? 0}</span>
+                </button>
+              ))}
+              {activeGroup.categories.length > 12 && (
+                <button type="button" className="chip chip--link live__subtoggle" onClick={() => setSubsOpen(!subsOpen)}>
+                  {subsOpen ? "Show fewer" : `Show all ${activeGroup.categories.length}`}
+                </button>
+              )}
+            </div>
+          )}
           <div className="live__summary">
             <h2 className="h3">{query.trim() ? `Results for "${query.trim()}"` : activeLabel}</h2>
             <span className="muted nums">{results.length.toLocaleString()} channels</span>
@@ -368,19 +446,6 @@ export default function Live() {
         </div>
       )}
 
-      {sheetOpen && (
-        <CategorySheet
-          groups={groups}
-          groupCounts={groupCounts}
-          categoryCounts={categoryCounts}
-          total={channels.length}
-          onPick={(f) => {
-            setFilter(f);
-            setSheetOpen(false);
-          }}
-          onClose={() => setSheetOpen(false)}
-        />
-      )}
     </div>
   );
 }

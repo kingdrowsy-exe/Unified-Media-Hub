@@ -4,6 +4,7 @@ import { epgProgress, formatClock, useNowPlaying } from "../../hooks/useEpg.js";
 import { useInView } from "../../hooks/useInView.js";
 import { qualityFromName, stripQualityFromName } from "../../utils/quality.js";
 import Icon from "../../ui/Icon.js";
+import SafeImg from "../../ui/SafeImg.js";
 
 interface ChannelCardProps {
   channel: Channel;
@@ -16,11 +17,8 @@ interface ChannelCardProps {
 }
 
 function Logo({ channel }: { channel: Channel }) {
-  return channel.icon ? (
-    <img src={channel.icon} alt="" loading="lazy" className="chlogo" />
-  ) : (
-    <span className="chlogo chlogo--blank">{channel.name.slice(0, 2).toUpperCase()}</span>
-  );
+  const blank = <span className="chlogo chlogo--blank">{channel.name.replace(/[^A-Za-z0-9]/g, "").slice(0, 2).toUpperCase()}</span>;
+  return <SafeImg src={channel.icon} loading="lazy" className="chlogo" fallback={blank} />;
 }
 
 export default function ChannelCard({ channel, active, favorite, onPlay, onToggleFavorite, variant = "card" }: ChannelCardProps) {

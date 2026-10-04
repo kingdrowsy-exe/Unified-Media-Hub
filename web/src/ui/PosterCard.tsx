@@ -1,3 +1,4 @@
+import SafeImg from "./SafeImg.js";
 import "./ui.css";
 
 interface PosterCardProps {
@@ -19,7 +20,7 @@ export default function PosterCard({ image, title, meta, tags, ratingPercent, un
   return (
     <button type="button" className={`poster ${unowned ? "is-unowned" : ""}`} onClick={onClick}>
       <span className="poster__art">
-        {image ? <img src={image} alt="" loading="lazy" /> : <span className="poster__blank">{title}</span>}
+        <SafeImg src={image} loading="lazy" fallback={<span className="poster__blank">{title}</span>} />
         {tags && tags.length > 0 && (
           <span className="poster__tags">
             {tags.map((t) => (

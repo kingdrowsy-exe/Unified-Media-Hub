@@ -15,6 +15,7 @@ export default function Search() {
   const [query, setQuery] = useState("");
   const [source, setSource] = useState<SourceFilter>("all");
   const [items, setItems] = useState<MergedItem[]>([]);
+  const [failed, setFailed] = useState<Source[]>([]);
   const [sources, setSources] = useState<{ plex: boolean; silo: boolean; emby: boolean } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +38,7 @@ export default function Search() {
         .then((res) => {
           setItems(res.items);
           setSources(res.sources);
+          setFailed(res.failed ?? []);
         })
         .catch((err) => setError(err.message))
         .finally(() => setLoading(false));
@@ -50,7 +52,7 @@ export default function Search() {
 
   const noSourcesConnected = sources && !sources.plex && !sources.silo && !sources.emby;
   const missingSources = sources ? (["plex", "silo", "emby"] as const).filter((s) => !sources[s]) : [];
-  const connected = (["plex", "silo", "emby"] as const).filter((s) => !missingSources.includes(s));
+  const connected = (["plex", "silo", "emby"] as const).filter((s) => !missingSources.includes(s) && !failed.includes(s));
 
   return (
     <div className="page">
@@ -79,6 +81,13 @@ export default function Search() {
               {s === "all" ? "All" : SOURCE_LABELS[s]}
             </button>
           ))}
+        </div>
+      )}
+
+      {hasQuery && failed.length > 0 && (
+        <div className="notice search__notice">
+          Couldn't search {failed.map((s) => SOURCE_LABELS[s]).join(" and ")}. The saved login may have expired.{" "}
+          <Link to="/settings">Check Settings</Link>
         </div>
       )}
 

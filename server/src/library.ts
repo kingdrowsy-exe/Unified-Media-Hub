@@ -21,6 +21,8 @@ async function safeList<T>(fn: () => Promise<T[]>): Promise<{ items: T[]; config
 export interface OwnedLibrary {
   merged: MergedItem[];
   sources: { plex: boolean; silo: boolean; emby: boolean };
+  /** Sources that are connected but errored (e.g. rejected credentials). */
+  failed?: Source[];
 }
 
 // Shared by /api/ondemand and /api/popular so both read the same cached, bounded
@@ -44,14 +46,23 @@ export function getOwnedPopularLibrary(): Promise<OwnedLibrary> {
 // search rather than only searching the small cached "popular" page, which would miss
 // almost everything you actually own.
 export async function searchOwnedLibrary(query: string): Promise<OwnedLibrary> {
+  // One source being down (expired login, server offline) must not take the whole search down.
+  const failed: Source[] = [];
+  const tolerant = <T,>(source: Source, fn: () => Promise<T[]>) =>
+    safeList<T>(fn).catch((err) => {
+      console.warn(`[search] ${source} failed: ${(err as Error).message}`);
+      failed.push(source);
+      return { items: [] as T[], configured: true };
+    });
   const [plex, silo, emby] = await Promise.all([
-    safeList<PlexItem>(() => searchPlexItems(query)),
-    safeList<SiloItem>(() => searchSiloItems(query)),
-    safeList<EmbyItem>(() => searchEmbyItems(query)),
+    tolerant<PlexItem>("plex", () => searchPlexItems(query)),
+    tolerant<SiloItem>("silo", () => searchSiloItems(query)),
+    tolerant<EmbyItem>("emby", () => searchEmbyItems(query)),
   ]);
   return {
     merged: mergeLibraries(plex.items, silo.items, emby.items),
     sources: { plex: plex.configured, silo: silo.configured, emby: emby.configured },
+    failed,
   };
 }
 

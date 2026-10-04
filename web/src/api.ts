@@ -100,7 +100,7 @@ async function deleteJson<T>(url: string): Promise<T> {
 
 export function fetchOnDemand(
   params: { search?: string; source?: string },
-): Promise<{ items: MergedItem[]; sources: { plex: boolean; silo: boolean; emby: boolean } }> {
+): Promise<{ items: MergedItem[]; sources: { plex: boolean; silo: boolean; emby: boolean }; failed?: Source[] }> {
   const url = new URL("/api/ondemand", window.location.origin);
   if (params.search) url.searchParams.set("search", params.search);
   if (params.source) url.searchParams.set("source", params.source);
