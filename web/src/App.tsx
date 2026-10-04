@@ -6,6 +6,39 @@ import Search from "./pages/Search.js";
 import Settings from "./pages/Settings.js";
 import { fetchSettingsStatus } from "./api.js";
 
+const NAV = [
+  {
+    to: "/live",
+    label: "Live TV",
+    icon: (
+      <>
+        <circle cx="12" cy="12" r="2" />
+        <path d="M16.2 7.8a6 6 0 0 1 0 8.4M7.8 16.2a6 6 0 0 1 0-8.4M19.1 4.9a10 10 0 0 1 0 14.2M4.9 19.1a10 10 0 0 1 0-14.2" />
+      </>
+    ),
+  },
+  {
+    to: "/ondemand",
+    label: "On Demand",
+    icon: (
+      <>
+        <rect x="3" y="5" width="18" height="14" rx="2" />
+        <path d="M10 9.5v5l4.5-2.5z" />
+      </>
+    ),
+  },
+  {
+    to: "/search",
+    label: "Search",
+    icon: (
+      <>
+        <circle cx="11" cy="11" r="7" />
+        <path d="M21 21l-5-5" />
+      </>
+    ),
+  },
+];
+
 export default function App() {
   const [defaultRoute, setDefaultRoute] = useState<string | null>(null);
 
@@ -20,40 +53,28 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <nav className="nav">
-        <NavLink to="/ondemand" className="nav-brand" aria-label="Unified Media Hub">
-          <img src="/logo.svg" alt="" width={32} height={32} />
-        </NavLink>
-        <div className="nav-inner">
-          <NavLink to="/live" className={({ isActive }) => (isActive ? "active" : "")}>
-            Live TV
+      <nav className="rail" aria-label="Primary">
+        <div className="rail-in">
+          <NavLink to="/ondemand" className="rail-brand" aria-label="Unified Media Hub">
+            <img src="/logo.svg" alt="" width={24} height={24} />
+            <b>Unified Hub</b>
           </NavLink>
-          <NavLink to="/ondemand" className={({ isActive }) => (isActive ? "active" : "")}>
-            On Demand
-          </NavLink>
-          <NavLink to="/search" className={({ isActive }) => (isActive ? "active" : "")}>
-            Search
+          {NAV.map((item) => (
+            <NavLink key={item.to} to={item.to} className={({ isActive }) => `rail-link ${isActive ? "active" : ""}`}>
+              <svg viewBox="0 0 24 24" aria-hidden="true">{item.icon}</svg>
+              <span>{item.label}</span>
+            </NavLink>
+          ))}
+          <div className="rail-spacer" />
+          <NavLink to="/settings" className={({ isActive }) => `rail-link ${isActive ? "active" : ""}`}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />
+              <circle cx="16" cy="7" r="2" />
+              <circle cx="8" cy="17" r="2" />
+            </svg>
+            <span>Settings</span>
           </NavLink>
         </div>
-        <NavLink
-          to="/settings"
-          className={({ isActive }) => `nav-settings ${isActive ? "active" : ""}`}
-          aria-label="Settings"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M12 15.5a3.5 3.5 0 100-7 3.5 3.5 0 000 7z"
-              stroke="currentColor"
-              strokeWidth="1.8"
-            />
-            <path
-              d="M19.4 13.5c.04-.33.06-.66.06-1s-.02-.67-.06-1l2.03-1.58a.5.5 0 00.12-.64l-1.92-3.32a.5.5 0 00-.6-.22l-2.39.96a7.4 7.4 0 00-1.73-1l-.36-2.54a.5.5 0 00-.5-.42h-3.84a.5.5 0 00-.5.42l-.36 2.54c-.63.24-1.22.58-1.73 1l-2.39-.96a.5.5 0 00-.6.22L2.65 9.28a.5.5 0 00.12.64L4.8 11.5c-.04.33-.06.66-.06 1s.02.67.06 1l-2.03 1.58a.5.5 0 00-.12.64l1.92 3.32c.13.22.39.31.6.22l2.39-.96c.51.42 1.1.76 1.73 1l.36 2.54c.04.25.25.42.5.42h3.84c.25 0 .46-.17.5-.42l.36-2.54c.63-.24 1.22-.58 1.73-1l2.39.96c.22.09.48 0 .6-.22l1.92-3.32a.5.5 0 00-.12-.64L19.4 13.5z"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </NavLink>
       </nav>
       <div className="app-routes">
         <Routes>

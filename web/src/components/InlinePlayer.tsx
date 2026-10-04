@@ -7,6 +7,8 @@ interface InlinePlayerProps {
   icon?: string;
   title?: string;
   subtitle?: string;
+  theater?: boolean;
+  onToggleTheater?: () => void;
 }
 
 const DEFAULT_VOLUME = 0.25;
@@ -66,7 +68,7 @@ function FullscreenIcon() {
   );
 }
 
-export default function InlinePlayer({ src, icon, title, subtitle }: InlinePlayerProps) {
+export default function InlinePlayer({ src, icon, title, subtitle, theater, onToggleTheater }: InlinePlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const { error, playing: loaded } = useHlsVideo(videoRef, src, true);
@@ -211,6 +213,18 @@ export default function InlinePlayer({ src, icon, title, subtitle }: InlinePlaye
               value={muted ? 0 : volume}
               onChange={(e) => handleVolumeChange(Number(e.target.value))}
             />
+            {onToggleTheater && (
+              <button
+                className={`transport-btn ${theater ? "transport-btn-on" : ""}`}
+                onClick={onToggleTheater}
+                title={theater ? "Default view" : "Theater mode"}
+                aria-pressed={theater}
+              >
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2">
+                  {theater ? <rect x="4" y="8" width="16" height="8" rx="1" /> : <rect x="2.5" y="6" width="19" height="12" rx="1.5" />}
+                </svg>
+              </button>
+            )}
             <button className="transport-btn" onClick={toggleFullscreen}>
               <FullscreenIcon />
             </button>

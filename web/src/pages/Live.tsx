@@ -97,6 +97,8 @@ export default function Live() {
   const [error, setError] = useState<string | null>(null);
   const [notConfigured, setNotConfigured] = useState(false);
   const [playing, setPlaying] = useState<Channel | null>(null);
+  const [theater, setTheater] = useState(false);
+  const [browseOpen, setBrowseOpen] = useState(false);
 
   useEffect(() => {
     fetchChannels()
@@ -190,96 +192,99 @@ export default function Live() {
     );
   }
 
-  return (
-    <div className="live-layout">
-      <aside className="live-categories-col">
-        <div className="live-sidebar-header">
-          Categories
-          <span className="live-sidebar-count">{channels.length}</span>
-        </div>
-        <div
-          className={`live-category ${filter.kind === "all" ? "active" : ""}`}
-          onClick={() => setFilter({ kind: "all" })}
-        >
-          <span>All</span>
-          <span className="live-category-count">{channels.length}</span>
-        </div>
+  const topGroups = [...groups]
+    .map((g) => ({ g, count: groupCounts.get(g.group) ?? 0 }))
+    .filter((x) => x.g.group !== "Other")
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 6);
 
-        {groups.map((g) => {
-          if (g.categories.length === 1) {
-            const only = g.categories[0];
-            const key: Filter = { kind: "category", category: only.name };
-            return (
-              <div
-                key={g.group}
-                className={`live-category ${filterKey(filter) === filterKey(key) ? "active" : ""}`}
-                onClick={() => setFilter(key)}
-              >
-                <span>{only.name}</span>
-                <span className="live-category-count">{categoryCounts.get(only.name) ?? 0}</span>
-              </div>
-            );
-          }
+  const pick = (f: Filter) => {
+    setFilter(f);
+    setBrowseOpen(false);
+  };
 
-          const expanded = expandedGroups.has(g.group);
-          const groupKey: Filter = { kind: "group", group: g.group };
+  const categoryTree = (
+    <>
+      <div className={`live-category ${filter.kind === "all" ? "active" : ""}`} onClick={() => pick({ kind: "all" })}>
+        <span>All</span>
+        <span className="live-category-count">{channels.length}</span>
+      </div>
+      {groups.map((g) => {
+        if (g.categories.length === 1) {
+          const only = g.categories[0];
+          const key: Filter = { kind: "category", category: only.name };
           return (
-            <div key={g.group} className="live-category-group">
-              <div
-                className={`live-category live-category-folder ${
-                  filterKey(filter) === filterKey(groupKey) ? "active" : ""
-                }`}
-                onClick={() => {
-                  setFilter(groupKey);
-                  if (!expanded) toggleGroupExpanded(g.group);
-                }}
-              >
-                <span className="live-category-label">
-                  <span
-                    className={`live-category-chevron ${expanded ? "expanded" : ""}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleGroupExpanded(g.group);
-                    }}
-                  >
-                    ›
-                  </span>
-                  <span>{g.group}</span>
-                </span>
-                <span className="live-category-count">{groupCounts.get(g.group) ?? 0}</span>
-              </div>
-              {expanded && (
-                <div className="live-category-children">
-                  {g.categories.map((c) => {
-                    const key: Filter = { kind: "category", category: c.name };
-                    return (
-                      <div
-                        key={c.name}
-                        className={`live-category sub ${filterKey(filter) === filterKey(key) ? "active" : ""}`}
-                        onClick={() => setFilter(key)}
-                      >
-                        <span>{c.label}</span>
-                        <span className="live-category-count">{categoryCounts.get(c.name) ?? 0}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+            <div
+              key={g.group}
+              className={`live-category ${filterKey(filter) === filterKey(key) ? "active" : ""}`}
+              onClick={() => pick(key)}
+            >
+              <span>{only.name}</span>
+              <span className="live-category-count">{categoryCounts.get(only.name) ?? 0}</span>
             </div>
           );
-        })}
-      </aside>
+        }
+        const expanded = expandedGroups.has(g.group);
+        const groupKey: Filter = { kind: "group", group: g.group };
+        return (
+          <div key={g.group} className="live-category-group">
+            <div
+              className={`live-category live-category-folder ${filterKey(filter) === filterKey(groupKey) ? "active" : ""}`}
+              onClick={() => pick(groupKey)}
+            >
+              <span className="live-category-label">
+                <span
+                  className={`live-category-chevron ${expanded ? "expanded" : ""}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleGroupExpanded(g.group);
+                  }}
+                >
+                  ›
+                </span>
+                <span>{g.group}</span>
+              </span>
+              <span className="live-category-count">{groupCounts.get(g.group) ?? 0}</span>
+            </div>
+            {expanded && (
+              <div className="live-category-children">
+                {g.categories.map((c) => {
+                  const key: Filter = { kind: "category", category: c.name };
+                  return (
+                    <div
+                      key={c.name}
+                      className={`live-category sub ${filterKey(filter) === filterKey(key) ? "active" : ""}`}
+                      onClick={() => pick(key)}
+                    >
+                      <span>{c.label}</span>
+                      <span className="live-category-count">{categoryCounts.get(c.name) ?? 0}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </>
+  );
 
-      <main className="live-player-col">
+  const activeLabel = filter.kind === "all" ? "All channels" : filter.kind === "group" ? filter.group : filter.category;
+
+  return (
+    <div className={`watch ${theater ? "theater" : ""}`}>
+      <main className="watch-main">
         <InlinePlayer
           src={playing ? streamUrlFor("live", playing.id) : undefined}
           icon={playing?.icon}
           title={playing?.name}
           subtitle={playing?.category}
+          theater={theater}
+          onToggleTheater={() => setTheater((t) => !t)}
         />
       </main>
 
-      <aside className="live-guide-col">
+      <aside className="watch-side">
         <input
           type="text"
           className="live-search"
@@ -287,6 +292,35 @@ export default function Live() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
+        <div className="cat-chips">
+          <button
+            type="button"
+            className={`cat-chip ${filter.kind === "all" ? "active" : ""}`}
+            onClick={() => setFilter({ kind: "all" })}
+          >
+            All
+          </button>
+          {topGroups.map(({ g }) => {
+            const key: Filter = { kind: "group", group: g.group };
+            return (
+              <button
+                type="button"
+                key={g.group}
+                className={`cat-chip ${filterKey(filter) === filterKey(key) ? "active" : ""}`}
+                onClick={() => setFilter(key)}
+              >
+                {g.group}
+              </button>
+            );
+          })}
+          <button type="button" className="cat-chip cat-chip-browse" onClick={() => setBrowseOpen(true)}>
+            All categories
+          </button>
+        </div>
+        <div className="watch-side-meta">
+          <span>{activeLabel}</span>
+          <span>{visible.length.toLocaleString()} channels</span>
+        </div>
 
         {visible.length === 0 ? (
           <div className="status">No channels found.</div>
@@ -303,6 +337,21 @@ export default function Live() {
           </div>
         )}
       </aside>
+
+      {browseOpen && (
+        <div className="cat-drawer-backdrop" onClick={() => setBrowseOpen(false)}>
+          <div className="cat-drawer" onClick={(e) => e.stopPropagation()}>
+            <div className="cat-drawer-head">
+              <h2>Categories</h2>
+              <span className="live-sidebar-count">{channels.length.toLocaleString()}</span>
+              <button type="button" className="cat-drawer-close" onClick={() => setBrowseOpen(false)} aria-label="Close">
+                ✕
+              </button>
+            </div>
+            <div className="cat-drawer-body">{categoryTree}</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
