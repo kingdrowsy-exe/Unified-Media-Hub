@@ -1263,3 +1263,15 @@
     font-size: 34px;
   }
 }
+
+/* theater mode is a desktop idea: on a phone the player stays 16:9 */
+@media (max-width: 720px) {
+  .mp--theater,
+  .watch--theater .watch__main > .mp {
+    aspect-ratio: 16 / 9;
+    height: auto;
+    width: 100%;
+    margin: 0;
+    border-radius: var(--r-lg);
+  }
+}

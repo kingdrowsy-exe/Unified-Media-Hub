@@ -56,7 +56,7 @@ function Spotlight({ items, onOpen }: { items: PopularItem[]; onOpen: (item: Pop
       <div className="spotlight__fade" />
       <div className="spotlight__body" key={item.id}>
         <span className="eyebrow">{owned ? "In your libraries" : "Popular now"}</span>
-        <h1 className="h1">{item.title}</h1>
+        <h2 className="h1">{item.title}</h2>
         <div className="spotlight__meta">
           {item.type === "movie" ? <span className="tag">Movie</span> : <span className="tag">Series</span>}
           {item.ratingPercent !== undefined && (

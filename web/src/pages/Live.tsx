@@ -86,7 +86,7 @@ function Spotlight({ channel, onPlay }: { channel: Channel; onPlay: (c: Channel)
           {quality && <span className={`tag ${quality === "4K" ? "tag--accent" : ""}`}>{quality}</span>}
           <span className="muted">{channel.category}</span>
         </div>
-        <h1 className="h1 spot__title">{now ? now.title : name}</h1>
+        <h2 className="h1 spot__title">{now ? now.title : name}</h2>
         <p className="muted spot__desc">{now?.description || (now ? name : "On now")}</p>
         {now && progress !== null && (
           <div className="spot__progress nums">
@@ -131,9 +131,9 @@ function GameSpotlight({ game, channel, extra, onPlay }: { game: SportsGame; cha
           <span className="tag">{LEAGUE_LABEL[game.league]}</span>
           {game.network && <span className="tag">{game.network}</span>}
         </div>
-        <h1 className="h1 spot__title">
+        <h2 className="h1 spot__title">
           {game.away.name} at {game.home.name}
-        </h1>
+        </h2>
         <p className="muted spot__desc nums">{[game.detail, game.odds].filter(Boolean).join(" · ")}</p>
         <div className="spot__actions">
           <button type="button" className="btn btn--primary" onClick={() => onPlay(channel)}>
@@ -171,7 +171,7 @@ function NowInfo({
           <span className={`tag ${shownQuality === "4K" ? "tag--accent" : ""}`}>{shownQuality ?? "Detecting…"}</span>
           <span className="tag">{channel.category}</span>
         </div>
-        <h1 className="h2 nowinfo__title">{now ? now.title : name}</h1>
+        <h2 className="h2 nowinfo__title">{now ? now.title : name}</h2>
         <p className="muted">
           {name} · {channel.category}
           {now && (
@@ -341,7 +341,12 @@ export default function Live() {
   const showTiles = filter.kind === "group" && !!activeGroup && activeGroup.categories.length > 1 && !flat && !query.trim() && view === "browse";
 
   const browsing = view === "browse" && filter.kind === "all" && !query.trim();
-  const activeLabel = filter.kind === "all" ? "All channels" : filter.kind === "group" ? filter.group : filter.category;
+  const activeLabel =
+    filter.kind === "all"
+      ? "All channels"
+      : filter.kind === "group"
+        ? filter.group
+        : (activeGroup?.categories.find((c) => c.name === filter.category)?.label ?? filter.category);
 
   function play(channel: Channel) {
     setPlaying(channel);

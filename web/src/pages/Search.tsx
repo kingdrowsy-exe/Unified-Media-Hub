@@ -56,6 +56,7 @@ export default function Search() {
 
   return (
     <div className="page">
+      <h1 className="sr-only">Search</h1>
       <div className="search__field">
         <Icon name="search" size={24} />
         <input

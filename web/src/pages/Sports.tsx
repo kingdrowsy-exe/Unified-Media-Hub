@@ -79,6 +79,8 @@ export default function Sports() {
 
   useEffect(() => {
     let cancelled = false;
+    setGames([]);
+    setError(null);
     setLoading(true);
     const load = () =>
       fetchScoreboard(league, date ?? undefined)
