@@ -1,8 +1,10 @@
+import "./search.css";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { MergedItem, PopularItem, Source, fetchOnDemand } from "../api.js";
-import MovieDetail from "../components/MovieDetail.js";
-import Tile from "../components/Tile.js";
+import Detail from "../ui/Detail.js";
+import Icon from "../ui/Icon.js";
+import PosterCard from "../ui/PosterCard.js";
 
 type SourceFilter = "all" | Source;
 type Playable = MergedItem | PopularItem;
@@ -48,79 +50,71 @@ export default function Search() {
 
   const noSourcesConnected = sources && !sources.plex && !sources.silo && !sources.emby;
   const missingSources = sources ? (["plex", "silo", "emby"] as const).filter((s) => !sources[s]) : [];
+  const connected = (["plex", "silo", "emby"] as const).filter((s) => !missingSources.includes(s));
 
   return (
-    <div className="page search-page">
-      <div className="search-hero">
-        <h1 className="search-heading">Search</h1>
-        <div className="search-bar">
-          <svg className="search-bar-icon" width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
-            <path d="M21 21l-4.3-4.3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-          </svg>
-          <input
-            type="text"
-            autoFocus
-            placeholder="Search movies and shows across Plex, Silo, and Emby…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-          {query && (
-            <button className="search-clear" onClick={() => setQuery("")} aria-label="Clear search">
-              &times;
-            </button>
-          )}
-        </div>
-
-        {hasQuery && (
-          <div className="search-filters">
-            {(["all", "plex", "silo", "emby"] as const).map((s) => (
-              <span key={s} className={`chip ${source === s ? "active" : ""}`} onClick={() => setSource(s)}>
-                {s === "all" ? "All" : SOURCE_LABELS[s]}
-              </span>
-            ))}
-          </div>
+    <div className="page">
+      <div className="search__field">
+        <Icon name="search" size={24} />
+        <input
+          className="search__input"
+          type="text"
+          autoFocus
+          placeholder="Search movies and shows"
+          aria-label="Search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        {query && (
+          <button type="button" className="icon-btn" onClick={() => setQuery("")} aria-label="Clear search">
+            <Icon name="x" size={20} />
+          </button>
         )}
       </div>
 
-      {hasQuery && !noSourcesConnected && missingSources.length > 0 && (
-        <div className="notice">
-          {missingSources.map((s) => SOURCE_LABELS[s]).join(" and ")}{" "}
-          {missingSources.length > 1 ? "aren't" : "isn't"} connected yet — showing{" "}
-          {(["plex", "silo", "emby"] as const).filter((s) => !missingSources.includes(s)).map((s) => SOURCE_LABELS[s]).join(" and ")}{" "}
-          only. <Link to="/settings">Go to Settings</Link>
+      {hasQuery && (
+        <div className="chips search__filters">
+          {(["all", "plex", "silo", "emby"] as const).map((s) => (
+            <button key={s} type="button" className="chip" aria-pressed={source === s} onClick={() => setSource(s)}>
+              {s === "all" ? "All" : SOURCE_LABELS[s]}
+            </button>
+          ))}
         </div>
       )}
 
-      {!hasQuery && <div className="status">Start typing to search your Plex, Silo, and Emby libraries.</div>}
+      {hasQuery && !noSourcesConnected && missingSources.length > 0 && (
+        <div className="notice search__notice">
+          {missingSources.map((s) => SOURCE_LABELS[s]).join(" and ")} {missingSources.length > 1 ? "aren't" : "isn't"} connected yet
+          {connected.length > 0 ? `, showing ${connected.map((s) => SOURCE_LABELS[s]).join(" and ")} only` : ""}.{" "}
+          <Link to="/settings">Go to Settings</Link>
+        </div>
+      )}
 
-      {hasQuery && loading && <div className="status">Searching…</div>}
-      {hasQuery && !loading && error && <div className="status">Search failed: {error}</div>}
+      {!hasQuery && <p className="search__empty">Type a title to search your Plex, Silo and Emby libraries.</p>}
+
+      {hasQuery && loading && <p className="search__empty">Searching…</p>}
+      {hasQuery && !loading && error && <p className="search__empty">Search failed: {error}</p>}
 
       {hasQuery && !loading && !error && noSourcesConnected && (
-        <div className="status">
-          Plex, Silo, and Emby aren't connected yet.
-          <br />
-          <Link to="/settings">Go to Settings</Link> to connect one.
-        </div>
+        <p className="search__empty">
+          Plex, Silo and Emby aren't connected yet. <Link to="/settings">Go to Settings</Link> to connect one.
+        </p>
       )}
 
       {hasQuery && !loading && !error && !noSourcesConnected && items.length === 0 && (
-        <div className="status">No titles found for "{query}".</div>
+        <p className="search__empty">No titles found for "{query}".</p>
       )}
 
       {hasQuery && !loading && !error && items.length > 0 && (
-        <div className="search-grid">
+        <div className="poster-grid search__results">
           {items.map((item) => (
-            <Tile
+            <PosterCard
               key={item.id}
               image={item.poster}
               title={item.title}
-              genre={item.genre}
+              meta={[item.year, item.genre].filter(Boolean).join(" · ")}
+              tags={item.sources.map((s) => SOURCE_LABELS[s.source])}
               ratingPercent={item.ratingPercent}
-              year={item.year}
-              owned
-              badges={item.sources.map((s) => s.source)}
               onClick={() => setSelectedItem(item)}
             />
           ))}
@@ -128,11 +122,7 @@ export default function Search() {
       )}
 
       {selectedItem && (
-        <MovieDetail
-          item={selectedItem}
-          onClose={() => setSelectedItem(null)}
-          onSelectSimilar={handleSelectSimilar}
-        />
+        <Detail item={selectedItem} onClose={() => setSelectedItem(null)} onSelectSimilar={handleSelectSimilar} />
       )}
     </div>
   );

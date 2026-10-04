@@ -1,0 +1,160 @@
+.ondemand {
+  padding-bottom: 96px;
+}
+
+.ondemand .page {
+  padding-bottom: 0;
+}
+
+/* ---------- spotlight ---------- */
+
+.spotlight {
+  position: relative;
+  height: clamp(320px, 46vh, 520px);
+  display: flex;
+  align-items: flex-end;
+  padding: 0 var(--pad) 56px;
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--surface);
+}
+
+.spotlight__bg {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background-size: cover;
+  background-position: center 22%;
+  opacity: 0;
+  transition: opacity 0.8s ease;
+}
+
+.spotlight__bg.is-on {
+  opacity: 1;
+}
+
+.spotlight__fade {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(to top, #000 3%, rgba(0, 0, 0, 0.55) 38%, rgba(0, 0, 0, 0) 78%),
+    linear-gradient(to right, rgba(0, 0, 0, 0.7), transparent 62%);
+}
+
+.spotlight__body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  max-width: 600px;
+  animation: spot-in 0.5s ease both;
+}
+
+@keyframes spot-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.spotlight__meta,
+.spotlight__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.spotlight__actions {
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.spotlight__picker {
+  position: absolute;
+  right: var(--pad);
+  bottom: 24px;
+  display: flex;
+  gap: 8px;
+}
+
+.spotlight__tab {
+  position: relative;
+  width: 24px;
+  height: 4px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.spotlight__tab::after {
+  content: "";
+  position: absolute;
+  inset: -10px -2px;
+}
+
+.spotlight__tab.is-on {
+  width: 48px;
+}
+
+.spotlight__tab i {
+  position: absolute;
+  inset: 0;
+  background: var(--accent);
+  transform-origin: left;
+  animation: spot-fill linear both;
+}
+
+.spotlight__tab i.is-paused {
+  animation: none;
+}
+
+@keyframes spot-fill {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+/* ---------- bar and rows ---------- */
+
+.ondemand__bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+  padding: 32px var(--pad) 24px;
+}
+
+.ondemand__notice {
+  margin: 0 var(--pad) 24px;
+}
+
+.ondemand__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+
+.ondemand__back {
+  margin: 0 0 16px -16px;
+}
+
+.ondemand__gridhead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+@media (max-width: 720px) {
+  .spotlight {
+    padding-bottom: 40px;
+  }
+
+  .spotlight__picker {
+    left: var(--pad);
+    right: auto;
+    bottom: 16px;
+  }
+}

@@ -1,0 +1,294 @@
+.st {
+  max-width: 1200px;
+  padding-bottom: 96px;
+}
+
+.st__head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 40px;
+}
+
+.st__group {
+  margin-bottom: 40px;
+}
+
+.st__group-title {
+  margin-bottom: 16px;
+}
+
+.st__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
+  gap: 16px;
+}
+
+.st__card {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 24px;
+}
+
+.st__id {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.st__logo {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  color: #fff;
+}
+
+.st__logo svg,
+.st__logo img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+.st__logo--xtream {
+  color: var(--accent-ink);
+}
+
+.st__names {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.st__name {
+  font-family: var(--display);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.st__state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  min-width: 0;
+}
+
+.st__state span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.st__dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--hover);
+}
+
+.st__state.is-on .st__dot {
+  background: var(--ok);
+}
+
+.st__state.is-on {
+  color: var(--text);
+}
+
+.st__card .btn {
+  align-self: flex-start;
+}
+
+/* ---------- drawer ---------- */
+
+.st__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.64);
+  animation: st-fade 0.15s ease;
+}
+
+.st__drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 201;
+  width: min(440px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 24px;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  background: var(--surface);
+  overflow-y: auto;
+  outline: none;
+  animation: st-slide 0.2s ease;
+}
+
+.st__drawer-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.st__drawer-head .st__names {
+  flex: 1;
+}
+
+.st__body {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.st__form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.st__field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.st__field .input {
+  background: var(--raised);
+  font-weight: 400;
+}
+
+.st__field .input:focus {
+  background: var(--hover);
+}
+
+.st__help {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.st__steps {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+}
+
+.st__steps li {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  counter-increment: step;
+}
+
+.st__steps li::before {
+  content: counter(step);
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  background: var(--raised);
+  font: 600 12px/1 var(--mono);
+}
+
+.st__steps a {
+  color: var(--accent);
+}
+
+.st__code {
+  padding: 24px 16px;
+  border-radius: 12px;
+  background: var(--raised);
+  font: 700 clamp(28px, 9vw, 40px)/1 var(--mono);
+  letter-spacing: 0.16em;
+  text-align: center;
+  user-select: all;
+}
+
+.st__wait {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.st__wait i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: st-pulse 1.2s ease-in-out infinite;
+}
+
+.st__error {
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--raised);
+  color: var(--live);
+  font-size: 14px;
+}
+
+.st__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.st__test {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.st__test-ok {
+  color: var(--ok);
+  font-size: 13px;
+}
+
+.st__test-err {
+  color: var(--live);
+  font-size: 13px;
+}
+
+@keyframes st-fade {
+  from { opacity: 0; }
+}
+
+@keyframes st-slide {
+  from { transform: translateX(32px); opacity: 0; }
+}
+
+@keyframes st-pulse {
+  50% { opacity: 0.25; }
+}
+
+@media (max-width: 720px) {
+  .st {
+    padding-bottom: 96px;
+  }
+
+  .st__drawer {
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  }
+}

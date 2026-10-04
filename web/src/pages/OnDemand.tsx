@@ -1,165 +1,226 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { PopularItem, fetchPopular, fetchPopularExpanded, fetchTraktRecommendations, fetchTraktWatchlist } from "../api.js";
-import MovieDetail from "../components/MovieDetail.js";
-import Hero, { HeroItem } from "../components/Hero.js";
-import Shelf from "../components/Shelf.js";
-import Tile from "../components/Tile.js";
+import Detail from "../ui/Detail.js";
+import Icon from "../ui/Icon.js";
+import PosterCard from "../ui/PosterCard.js";
+import Row from "../ui/Row.js";
+import "./ondemand.css";
 
-const HERO_SLIDE_COUNT = 8;
+const SPOTLIGHT_COUNT = 6;
+const SPOTLIGHT_MS = 8000;
 
-// Alternate movie/show/movie/show... so the rotation isn't just "all movies then all shows".
+type Kind = "all" | "movie" | "show";
+type Grid = { title: string; items: PopularItem[]; loadingMore: boolean };
+
+// Alternate movie/show/movie/show so the spotlight is not all movies and then all shows.
 function interleave<T>(a: T[], b: T[]): T[] {
-  const result: T[] = [];
+  const out: T[] = [];
   for (let i = 0; i < Math.max(a.length, b.length); i++) {
-    if (a[i]) result.push(a[i]);
-    if (b[i]) result.push(b[i]);
+    if (a[i]) out.push(a[i]);
+    if (b[i]) out.push(b[i]);
   }
-  return result;
+  return out;
+}
+
+function metaLine(item: PopularItem): string {
+  return [item.year, item.genre].filter(Boolean).join(" · ");
+}
+
+function Spotlight({ items, onOpen }: { items: PopularItem[]; onOpen: (item: PopularItem) => void }) {
+  const [index, setIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
+
+  useEffect(() => setIndex(0), [items.length]);
+
+  useEffect(() => {
+    if (items.length < 2 || paused) return;
+    const id = window.setTimeout(() => setIndex((i) => (i + 1) % items.length), SPOTLIGHT_MS);
+    return () => window.clearTimeout(id);
+  }, [index, items.length, paused]);
+
+  const item = items[index];
+  if (!item) return null;
+  const owned = item.sources.length > 0;
+
+  return (
+    <section className="spotlight" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
+      {items.map((it, i) => (
+        <div
+          key={it.id}
+          className={`spotlight__bg ${i === index ? "is-on" : ""}`}
+          style={{ backgroundImage: `url(${it.backdrop ?? it.poster})` }}
+          aria-hidden="true"
+        />
+      ))}
+      <div className="spotlight__fade" />
+      <div className="spotlight__body" key={item.id}>
+        <span className="eyebrow">{owned ? "In your libraries" : "Popular now"}</span>
+        <h1 className="h1">{item.title}</h1>
+        <div className="spotlight__meta">
+          {item.type === "movie" ? <span className="tag">Movie</span> : <span className="tag">Series</span>}
+          {item.ratingPercent !== undefined && (
+            <span className="tag">
+              <Icon name="star" size={12} />
+              {item.ratingPercent}%
+            </span>
+          )}
+          <span className="muted">{metaLine(item)}</span>
+        </div>
+        <div className="spotlight__actions">
+          <button type="button" className="btn btn--primary" onClick={() => onOpen(item)}>
+            <Icon name={owned ? "play" : "tag"} size={20} />
+            {owned ? "Play" : "Details"}
+          </button>
+          {!owned && <span className="muted">Not in a connected library yet</span>}
+        </div>
+      </div>
+      {items.length > 1 && (
+        <div className="spotlight__picker" role="tablist" aria-label="Featured titles">
+          {items.map((it, i) => (
+            <button
+              key={it.id}
+              type="button"
+              role="tab"
+              aria-selected={i === index}
+              aria-label={it.title}
+              className={`spotlight__tab ${i === index ? "is-on" : ""}`}
+              onClick={() => setIndex(i)}
+            >
+              {i === index && !paused && <i style={{ animationDuration: `${SPOTLIGHT_MS}ms` }} />}
+              {i === index && paused && <i className="is-paused" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </section>
+  );
 }
 
 export default function OnDemand() {
-  const [popularMovies, setPopularMovies] = useState<PopularItem[]>([]);
-  const [popularShows, setPopularShows] = useState<PopularItem[]>([]);
-  const [tmdbConfigured, setTmdbConfigured] = useState<boolean | null>(null);
+  const [movies, setMovies] = useState<PopularItem[]>([]);
+  const [shows, setShows] = useState<PopularItem[]>([]);
+  const [configured, setConfigured] = useState<boolean | null>(null);
   const [watchlist, setWatchlist] = useState<PopularItem[]>([]);
-  const [recommendations, setRecommendations] = useState<PopularItem[]>([]);
-  const [selectedItem, setSelectedItem] = useState<PopularItem | null>(null);
-  const [expandedShelf, setExpandedShelf] = useState<{ title: string; items: PopularItem[]; loadingMore: boolean } | null>(
-    null,
-  );
-
-  // Popular Movies/Shows only show ~25 items normally (cheap to keep loaded for the
-  // shelf); "See All" wants far more, so fetch a bigger, separately-cached batch lazily,
-  // showing what's already loaded immediately rather than blocking on it.
-  function openExpandedPopular(type: "movie" | "show", title: string, fallback: PopularItem[]) {
-    setExpandedShelf({ title, items: fallback, loadingMore: true });
-    // Guard against a stale response landing after the user closed this shelf or opened
-    // a different one while the fetch was still in flight.
-    fetchPopularExpanded(type)
-      .then((res) => {
-        setExpandedShelf((prev) =>
-          prev && prev.title === title
-            ? { title, items: res.items.length > 0 ? res.items : fallback, loadingMore: false }
-            : prev,
-        );
-      })
-      .catch(() => {
-        setExpandedShelf((prev) => (prev && prev.title === title ? { title, items: fallback, loadingMore: false } : prev));
-      });
-  }
+  const [recommended, setRecommended] = useState<PopularItem[]>([]);
+  const [selected, setSelected] = useState<PopularItem | null>(null);
+  const [grid, setGrid] = useState<Grid | null>(null);
+  const [kind, setKind] = useState<Kind>("all");
+  const [ownedOnly, setOwnedOnly] = useState(false);
 
   useEffect(() => {
     fetchPopular()
       .then((res) => {
-        setPopularMovies(res.movies);
-        setPopularShows(res.shows);
-        setTmdbConfigured(res.configured);
+        setMovies(res.movies);
+        setShows(res.shows);
+        setConfigured(res.configured);
       })
-      .catch(() => setTmdbConfigured(false));
+      .catch(() => setConfigured(false));
     fetchTraktWatchlist()
       .then((res) => setWatchlist(res.items))
       .catch(() => setWatchlist([]));
     fetchTraktRecommendations()
-      .then((res) => setRecommendations(res.items))
-      .catch(() => setRecommendations([]));
+      .then((res) => setRecommended(res.items))
+      .catch(() => setRecommended([]));
   }, []);
 
-  function handleSelectSimilar(tmdbId: number, type: "movie" | "show") {
-    setSelectedItem({ id: `tmdb:${type}:${tmdbId}`, title: "", type, sources: [] });
+  // "See all" asks for a larger, separately cached batch; show what is already loaded while it arrives.
+  function openPopularGrid(type: "movie" | "show", title: string, fallback: PopularItem[]) {
+    setGrid({ title, items: fallback, loadingMore: true });
+    fetchPopularExpanded(type)
+      .then((res) =>
+        setGrid((prev) =>
+          prev && prev.title === title ? { title, items: res.items.length > 0 ? res.items : fallback, loadingMore: false } : prev,
+        ),
+      )
+      .catch(() => setGrid((prev) => (prev && prev.title === title ? { title, items: fallback, loadingMore: false } : prev)));
   }
 
-  const heroItems: HeroItem[] = useMemo(
-    () =>
-      interleave(popularMovies, popularShows)
-        .slice(0, HERO_SLIDE_COUNT)
-        .map((item) => ({
-          image: item.backdrop ?? item.poster,
-          title: item.title,
-          subtitle: [item.year, item.genre].filter(Boolean).join(" · "),
-          owned: item.sources.length > 0,
-          onPlay: () => setSelectedItem(item),
-        })),
-    [popularMovies, popularShows],
+  const keep = (item: PopularItem) => (kind === "all" || item.type === kind) && (!ownedOnly || item.sources.length > 0);
+
+  const spotlight = useMemo(
+    () => interleave(movies, shows).filter((i) => i.backdrop || i.poster).slice(0, SPOTLIGHT_COUNT),
+    [movies, shows],
   );
 
-  function renderTile(item: PopularItem) {
-    const isOwned = item.sources.length > 0;
-    return (
-      <Tile
-        key={item.id}
-        image={item.poster}
-        title={item.title}
-        genre={item.genre}
-        ratingPercent={item.ratingPercent}
-        year={item.year}
-        owned={isOwned}
-        badges={isOwned ? item.sources.map((s) => s.source) : undefined}
-        onClick={() => setSelectedItem(item)}
-      />
-    );
+  function handleSimilar(tmdbId: number, type: "movie" | "show") {
+    setSelected({ id: `tmdb:${type}:${tmdbId}`, title: "", type, sources: [] });
   }
 
+  const poster = (item: PopularItem) => (
+    <PosterCard
+      key={item.id}
+      image={item.poster}
+      title={item.title}
+      meta={metaLine(item)}
+      tags={item.sources.map((s) => s.source)}
+      ratingPercent={item.ratingPercent}
+      unowned={item.sources.length === 0}
+      onClick={() => setSelected(item)}
+    />
+  );
+
+  const shelves: { title: string; items: PopularItem[]; onSeeAll: () => void }[] = [
+    { title: "Your Trakt watchlist", items: watchlist, onSeeAll: () => setGrid({ title: "Your Trakt watchlist", items: watchlist, loadingMore: false }) },
+    { title: "Recommended for you", items: recommended, onSeeAll: () => setGrid({ title: "Recommended for you", items: recommended, loadingMore: false }) },
+    { title: "Popular movies", items: movies, onSeeAll: () => openPopularGrid("movie", "Popular movies", movies) },
+    { title: "Popular shows", items: shows, onSeeAll: () => openPopularGrid("show", "Popular shows", shows) },
+  ];
+
+  const visibleShelves = shelves.map((s) => ({ ...s, items: s.items.filter(keep) })).filter((s) => s.items.length > 0);
+
   return (
-    <div className="page">
-      {heroItems.length > 0 && <Hero items={heroItems} />}
-
-      {tmdbConfigured === false && (
-        <div className="notice">
-          TMDB isn't connected yet, so Popular Movies/Shows aren't available.{" "}
-          <Link to="/settings">Connect TMDB</Link>
-        </div>
-      )}
-
-      {watchlist.length > 0 && (
-        <Shelf
-          title="Your Trakt Watchlist"
-          onTitleClick={() => setExpandedShelf({ title: "Your Trakt Watchlist", items: watchlist, loadingMore: false })}
-        >
-          {watchlist.map(renderTile)}
-        </Shelf>
-      )}
-      {recommendations.length > 0 && (
-        <Shelf
-          title="Recommended for You"
-          onTitleClick={() => setExpandedShelf({ title: "Recommended for You", items: recommendations, loadingMore: false })}
-        >
-          {recommendations.map(renderTile)}
-        </Shelf>
-      )}
-      {popularMovies.length > 0 && (
-        <Shelf title="Popular Movies" onTitleClick={() => openExpandedPopular("movie", "Popular Movies", popularMovies)}>
-          {popularMovies.map(renderTile)}
-        </Shelf>
-      )}
-      {popularShows.length > 0 && (
-        <Shelf title="Popular Shows" onTitleClick={() => openExpandedPopular("show", "Popular Shows", popularShows)}>
-          {popularShows.map(renderTile)}
-        </Shelf>
-      )}
-
-      {expandedShelf && (
-        <div className="shelf-overlay">
-          <button className="detail-back" onClick={() => setExpandedShelf(null)} aria-label="Close">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+    <div className="ondemand">
+      {grid ? (
+        <div className="page">
+          <button type="button" className="btn btn--quiet btn--sm ondemand__back" onClick={() => setGrid(null)}>
+            <Icon name="back" size={20} />
+            On Demand
           </button>
-          <div className="shelf-overlay-scroll">
-            <h1 className="shelf-overlay-title">{expandedShelf.title}</h1>
-            <div className="search-grid">{expandedShelf.items.map(renderTile)}</div>
-            {expandedShelf.loadingMore && <div className="status shelf-overlay-loading">Loading more…</div>}
+          <div className="ondemand__gridhead">
+            <h1 className="h1">{grid.title}</h1>
+            <span className="muted nums">{grid.items.filter(keep).length} titles</span>
           </div>
+          <div className="poster-grid">{grid.items.filter(keep).map(poster)}</div>
+          {grid.loadingMore && <div className="status">Loading more…</div>}
         </div>
+      ) : (
+        <>
+          {spotlight.length > 0 && <Spotlight items={spotlight} onOpen={setSelected} />}
+
+          <div className="ondemand__bar">
+            <h1 className="h2">On Demand</h1>
+            <div className="chips">
+              {(["all", "movie", "show"] as Kind[]).map((k) => (
+                <button key={k} type="button" className="chip" aria-pressed={kind === k} onClick={() => setKind(k)}>
+                  {k === "all" ? "All" : k === "movie" ? "Movies" : "Shows"}
+                </button>
+              ))}
+              <button type="button" className="chip" aria-pressed={ownedOnly} onClick={() => setOwnedOnly(!ownedOnly)}>
+                <Icon name="check" size={16} />
+                In my libraries
+              </button>
+            </div>
+          </div>
+
+          {configured === false && (
+            <div className="ondemand__notice notice">
+              TMDB isn't connected, so the popular shelves are empty. <Link to="/settings">Connect TMDB</Link>
+            </div>
+          )}
+
+          <div className="ondemand__rows">
+            {visibleShelves.map((s) => (
+              <Row key={s.title} title={s.title} onSeeAll={s.onSeeAll}>
+                {s.items.map(poster)}
+              </Row>
+            ))}
+            {configured && visibleShelves.length === 0 && <div className="status">Nothing matches these filters.</div>}
+          </div>
+        </>
       )}
 
-      {selectedItem && (
-        <MovieDetail
-          item={selectedItem}
-          onClose={() => setSelectedItem(null)}
-          onSelectSimilar={handleSelectSimilar}
-        />
-      )}
+      {selected && <Detail item={selected} onClose={() => setSelected(null)} onSelectSimilar={handleSimilar} />}
     </div>
   );
 }
