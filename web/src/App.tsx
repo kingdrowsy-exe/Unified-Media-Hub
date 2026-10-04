@@ -7,6 +7,7 @@ import Sports from "./pages/Sports.js";
 import Settings from "./pages/Settings.js";
 import { fetchSettingsStatus } from "./api.js";
 import Icon, { IconName } from "./ui/Icon.js";
+import { PlayerProvider } from "./player/PlayerProvider.js";
 
 const NAV: { to: string; label: string; icon: IconName }[] = [
   { to: "/live", label: "Live TV", icon: "live" },
@@ -40,6 +41,7 @@ export default function App() {
   }, []);
 
   return (
+    <PlayerProvider>
     <div className="shell">
       <nav className={`rail ${folded ? "is-folded" : ""}`} aria-label="Primary" onMouseLeave={() => setFolded(false)}>
         <div className="rail__in">
@@ -64,5 +66,6 @@ export default function App() {
         </Routes>
       </main>
     </div>
+    </PlayerProvider>
   );
 }

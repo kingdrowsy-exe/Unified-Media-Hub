@@ -20,6 +20,12 @@ interface MediaPlayerProps {
   onClose?: () => void;
   /** Called with the real decoded resolution label (e.g. "1080p") once the first frame is known. */
   onQuality?: (quality: string) => void;
+  /** Fill whatever box it is placed in instead of sizing itself (used by the app-level player host). */
+  fill?: boolean;
+  /** Small floating version: minimal controls, no keyboard shortcuts. */
+  compact?: boolean;
+  /** Compact only: bring the player back to its full-size home. */
+  onExpand?: () => void;
 }
 
 const HIDE_DELAY = 2800;
@@ -48,6 +54,9 @@ export default function MediaPlayer({
   onToggleTheater,
   onClose,
   onQuality,
+  fill,
+  compact,
+  onExpand,
 }: MediaPlayerProps) {
   const onQualityRef = useRef(onQuality);
   onQualityRef.current = onQuality;
@@ -215,7 +224,7 @@ export default function MediaPlayer({
   }, [scrubbing, total]);
 
   useEffect(() => {
-    if (!src) return;
+    if (!src || compact) return;
     function onKey(e: KeyboardEvent) {
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === "INPUT" || t.tagName === "SELECT" || t.isContentEditable)) return;
@@ -254,7 +263,7 @@ export default function MediaPlayer({
 
   return (
     <div
-      className={`mp ${theater ? "mp--theater" : ""} ${showUi || !src ? "" : "mp--idle"}`}
+      className={`mp ${theater && !fill ? "mp--theater" : ""} ${fill ? "mp--fill" : ""} ${compact ? "mp--compact" : ""} ${showUi || !src ? "" : "mp--idle"}`}
       ref={boxRef}
       onMouseMove={wake}
       onMouseLeave={armHide}
@@ -283,7 +292,7 @@ export default function MediaPlayer({
       {src && (
         <>
           <div className="mp__top">
-            {onClose && (
+            {onClose && !compact && (
               <button type="button" className="icon-btn" onClick={onClose} aria-label="Close player">
                 <Icon name="back" />
               </button>
@@ -296,6 +305,20 @@ export default function MediaPlayer({
                 {subtitle && <span>{subtitle}</span>}
               </div>
             </div>
+            {compact && (
+              <div className="mp__miniactions">
+                {onExpand && (
+                  <button type="button" className="icon-btn" onClick={onExpand} aria-label="Back to full player" title="Back to full player">
+                    <Icon name="fullscreen" size={20} />
+                  </button>
+                )}
+                {onClose && (
+                  <button type="button" className="icon-btn" onClick={onClose} aria-label="Stop and close" title="Stop and close">
+                    <Icon name="x" size={20} />
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="mp__bottom">

@@ -1,0 +1,49 @@
+/* The player host covers the content area (not the rail) and lets clicks through everywhere except the player. */
+.phost {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: var(--rail);
+  z-index: 30;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.phost__box {
+  position: absolute;
+  pointer-events: auto;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.phost__box.is-mini {
+  right: 16px;
+  bottom: 16px;
+  width: 340px;
+  height: 191px;
+  border-radius: var(--r-lg);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7);
+  animation: mini-in 0.2s ease both;
+}
+
+@keyframes mini-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+@media (max-width: 720px) {
+  .phost {
+    left: 0;
+    bottom: 64px;
+  }
+
+  .phost__box.is-mini {
+    right: 8px;
+    bottom: 8px;
+    width: 232px;
+    height: 131px;
+  }
+}

@@ -1275,3 +1275,30 @@
     border-radius: var(--r-lg);
   }
 }
+
+/* ---------- the docked player's placeholder: the app-level player sits exactly on this box ---------- */
+
+.player-slot {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+}
+
+.watch--theater .player-slot {
+  width: calc(100% + 2 * var(--pad));
+  margin: 0 calc(var(--pad) * -1);
+  aspect-ratio: auto;
+  height: max(460px, calc(100vh - 96px));
+  border-radius: 0;
+}
+
+@media (max-width: 720px) {
+  .watch--theater .player-slot {
+    width: 100%;
+    margin: 0;
+    aspect-ratio: 16 / 9;
+    height: auto;
+    border-radius: var(--r-lg);
+  }
+}

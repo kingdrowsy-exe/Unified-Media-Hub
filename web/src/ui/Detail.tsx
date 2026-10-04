@@ -11,6 +11,7 @@ import {
   SourceVersion,
   streamUrlFor,
 } from "../api.js";
+import { usePlayer } from "../player/PlayerProvider.js";
 import Icon from "./Icon.js";
 import MediaPlayer from "./MediaPlayer.js";
 import PosterCard from "./PosterCard.js";
@@ -52,11 +53,18 @@ export default function Detail({ item, onClose, onSelectSimilar }: DetailProps) 
   const [sourceFilter, setSourceFilter] = useState<"all" | Source>("all");
   const [loadingSources, setLoadingSources] = useState(false);
   const [playingSrc, setPlayingSrc] = useState<string | null>(null);
+  const livePlayer = usePlayer();
   const [theater, setTheater] = useState(false);
   const [overviewExpanded, setOverviewExpanded] = useState(false);
   const [revealed, setRevealed] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Starting a movie ends any live channel that is still playing in the background.
+  useEffect(() => {
+    if (playingSrc) livePlayer.stop();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playingSrc]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo(0, 0);

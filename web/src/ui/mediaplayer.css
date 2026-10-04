@@ -243,3 +243,50 @@
     padding-right: 12px;
   }
 }
+
+/* ---------- placed by the player host ---------- */
+
+.mp--fill {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+  max-height: none;
+  border-radius: inherit;
+}
+
+.mp--compact .mp__top {
+  padding: 8px 8px 20px 12px;
+}
+
+.mp--compact .mp__title {
+  font-size: 13px;
+}
+
+.mp--compact .mp__sub .tag:not(.tag--live),
+.mp--compact .mp__sub span:not(.tag),
+.mp--compact .mp__volume,
+.mp--compact .mp__bigplay,
+.mp--compact [aria-label="Theater mode"],
+.mp--compact [aria-label="Fullscreen"] {
+  display: none;
+}
+
+.mp--compact .mp__bottom {
+  padding: 24px 8px 8px;
+}
+
+.mp--compact .mp__controls .icon-btn {
+  width: 32px;
+  height: 32px;
+}
+
+.mp__miniactions {
+  margin-left: auto;
+  display: flex;
+  gap: 2px;
+}
+
+.mp--compact .mp__miniactions .icon-btn {
+  width: 32px;
+  height: 32px;
+}

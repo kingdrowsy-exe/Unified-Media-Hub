@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ApiError, Channel, SportsGame, fetchChannels, streamUrlFor } from "../api.js";
+import { ApiError, Channel, SportsGame, fetchChannels } from "../api.js";
+import { usePlayer } from "../player/PlayerProvider.js";
 import { useLiveGames } from "../hooks/useLiveGames.js";
 import { buildGameChannelIndex } from "../utils/gameChannels.js";
 import { epgProgress, formatClock, useNowPlaying } from "../hooks/useEpg.js";
@@ -10,7 +11,6 @@ import { groupCategories } from "../utils/categoryGroups.js";
 import { qualityFromName, stripQualityFromName } from "../utils/quality.js";
 import Icon from "../ui/Icon.js";
 import SafeImg from "../ui/SafeImg.js";
-import MediaPlayer from "../ui/MediaPlayer.js";
 import Row from "../ui/Row.js";
 import CategoryGrid, { LiveFilter } from "./live/CategoryGrid.js";
 import ChannelCard from "./live/ChannelCard.js";
@@ -196,21 +196,23 @@ function NowInfo({
   );
 }
 
+// Kept for the session so coming back to Live TV renders instantly (and the docked player never flashes).
+let channelCache: { channels: Channel[]; categories: string[] } | null = null;
+
 export default function Live() {
-  const [channels, setChannels] = useState<Channel[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [channels, setChannels] = useState<Channel[]>(() => channelCache?.channels ?? []);
+  const [categories, setCategories] = useState<string[]>(() => channelCache?.categories ?? []);
+  const [loading, setLoading] = useState(!channelCache);
   const [error, setError] = useState<string | null>(null);
   const [notConfigured, setNotConfigured] = useState(false);
 
-  const [playing, setPlaying] = useState<Channel | null>(null);
-  const [theater, setTheater] = useState(false);
+  const player = usePlayer();
+  const { channel: playing, theater, resolution } = player;
   const [view, setView] = useState<"browse" | "guide" | "categories">("browse");
   const [filter, setFilter] = useState<LiveFilter>({ kind: "all" });
   const [query, setQuery] = useState("");
   const [limit, setLimit] = useState(PAGE_SIZE);
   const [flat, setFlat] = useState(false);
-  const [resolution, setResolution] = useState<string | null>(null);
   const [favorites, setFavorites] = useStoredIds("umh.favorites");
   const [recent, setRecent] = useStoredIds("umh.recent");
   const [storedPins, setStoredPins] = useState<string[] | null>(readPins);
@@ -220,7 +222,9 @@ export default function Live() {
   useEffect(() => {
     fetchChannels()
       .then((res) => {
-        setChannels(sortAlpha(res.channels, (c) => c.name));
+        const sorted = sortAlpha(res.channels, (c) => c.name);
+        channelCache = { channels: sorted, categories: res.categories };
+        setChannels(sorted);
         setCategories(res.categories);
       })
       .catch((err) => {
@@ -232,7 +236,6 @@ export default function Live() {
 
   useEffect(() => setLimit(PAGE_SIZE), [filter, query, view]);
   useEffect(() => setFlat(false), [filter]);
-  useEffect(() => setResolution(null), [playing?.id]);
 
   const byId = useMemo(() => new Map(channels.map((c) => [c.id, c])), [channels]);
   const groups = useMemo(
@@ -349,7 +352,7 @@ export default function Live() {
         : (activeGroup?.categories.find((c) => c.name === filter.category)?.label ?? filter.category);
 
   function play(channel: Channel) {
-    setPlaying(channel);
+    player.play(channel);
     setRecent([channel.id, ...recent.filter((id) => id !== channel.id)].slice(0, RECENT_MAX));
     topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -434,17 +437,7 @@ export default function Live() {
       {playing && (
         <section className={`watch ${theater ? "watch--theater" : ""}`}>
           <div className="watch__main">
-            <MediaPlayer
-              src={streamUrlFor("live", playing.id)}
-              isHls
-              live
-              title={playing.name}
-              subtitle={playing.category}
-              theater={theater}
-              onToggleTheater={() => setTheater((t) => !t)}
-              onClose={() => setPlaying(null)}
-              onQuality={setResolution}
-            />
+            <div ref={player.slotRef} className="player-slot" />
             <NowInfo
               channel={playing}
               favorite={favorites.includes(playing.id)}
