@@ -15,9 +15,9 @@ const NAV: { to: string; label: string; icon: IconName }[] = [
   { to: "/search", label: "Search", icon: "search" },
 ];
 
-function RailLink({ to, label, icon }: { to: string; label: string; icon: IconName }) {
+function RailLink({ to, label, icon, onNavigate }: { to: string; label: string; icon: IconName; onNavigate: () => void }) {
   return (
-    <NavLink to={to} className={({ isActive }) => `rail__link ${isActive ? "is-active" : ""}`}>
+    <NavLink to={to} className={({ isActive }) => `rail__link ${isActive ? "is-active" : ""}`} onClick={onNavigate}>
       <Icon name={icon} />
       <span>{label}</span>
     </NavLink>
@@ -26,6 +26,12 @@ function RailLink({ to, label, icon }: { to: string; label: string; icon: IconNa
 
 export default function App() {
   const [defaultRoute, setDefaultRoute] = useState<string | null>(null);
+  // After a click the rail folds away even though the pointer is still over it; it re-arms once the pointer leaves.
+  const [folded, setFolded] = useState(false);
+  const fold = () => {
+    setFolded(true);
+    (document.activeElement as HTMLElement | null)?.blur();
+  };
 
   useEffect(() => {
     fetchSettingsStatus()
@@ -35,16 +41,16 @@ export default function App() {
 
   return (
     <div className="shell">
-      <nav className="rail" aria-label="Primary">
+      <nav className={`rail ${folded ? "is-folded" : ""}`} aria-label="Primary" onMouseLeave={() => setFolded(false)}>
         <div className="rail__in">
-          <NavLink to="/ondemand" className="rail__brand" aria-label="Unified Media Hub">
+          <NavLink to="/ondemand" className="rail__brand" aria-label="Unified Media Hub" onClick={fold}>
             <img src="/logo-mark.png" alt="" />
           </NavLink>
           {NAV.map((item) => (
-            <RailLink key={item.to} {...item} />
+            <RailLink key={item.to} {...item} onNavigate={fold} />
           ))}
           <div className="rail__spacer" />
-          <RailLink to="/settings" label="Settings" icon="settings" />
+          <RailLink to="/settings" label="Settings" icon="settings" onNavigate={fold} />
         </div>
       </nav>
       <main className="stage">

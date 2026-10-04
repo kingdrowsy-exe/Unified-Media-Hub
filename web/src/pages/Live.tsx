@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ApiError, Channel, fetchChannels, streamUrlFor } from "../api.js";
+import { ApiError, Channel, SportsGame, fetchChannels, streamUrlFor } from "../api.js";
+import { useLiveGames } from "../hooks/useLiveGames.js";
+import { buildGameChannelIndex } from "../utils/gameChannels.js";
 import { epgProgress, formatClock, useNowPlaying } from "../hooks/useEpg.js";
 import { useInView } from "../hooks/useInView.js";
 import { sortAlpha } from "../utils/alpha.js";
@@ -12,7 +14,8 @@ import MediaPlayer from "../ui/MediaPlayer.js";
 import Row from "../ui/Row.js";
 import CategoryGrid, { LiveFilter } from "./live/CategoryGrid.js";
 import ChannelCard from "./live/ChannelCard.js";
-import SubCategoryGrid from "./live/SubCategoryGrid.js";
+import GameCard from "./sports/GameCard.js";
+import SubCategoryGrid, { Mark } from "./live/SubCategoryGrid.js";
 import "./live.css";
 
 const PAGE_SIZE = 60;
@@ -105,6 +108,45 @@ function Spotlight({ channel, onPlay }: { channel: Channel; onPlay: (c: Channel)
   );
 }
 
+const LEAGUE_LABEL: Record<SportsGame["league"], string> = { nfl: "NFL", ncaaf: "NCAA Football", mlb: "MLB", nhl: "NHL" };
+
+function GameSpotlight({ game, channel, extra, onPlay }: { game: SportsGame; channel: Channel; extra: number; onPlay: (c: Channel) => void }) {
+  const side = (t: SportsGame["away"]) => (
+    <div className="mu">
+      <SafeImg src={t.logo} className="mu__logo" fallback={<span className="mu__logo mu__logo--blank">{t.abbr}</span>} />
+      <span className="mu__name">{t.short}</span>
+      <span className="mu__score nums">{t.score ?? 0}</span>
+    </div>
+  );
+  return (
+    <section className="spot spot--game">
+      <div className="spot__matchup">
+        {side(game.away)}
+        <span className="mu__at">at</span>
+        {side(game.home)}
+      </div>
+      <div className="spot__body">
+        <div className="spot__tags">
+          <span className="tag tag--live">LIVE</span>
+          <span className="tag">{LEAGUE_LABEL[game.league]}</span>
+          {game.network && <span className="tag">{game.network}</span>}
+        </div>
+        <h1 className="h1 spot__title">
+          {game.away.name} at {game.home.name}
+        </h1>
+        <p className="muted spot__desc nums">{[game.detail, game.odds].filter(Boolean).join(" · ")}</p>
+        <div className="spot__actions">
+          <button type="button" className="btn btn--primary" onClick={() => onPlay(channel)}>
+            <Icon name="play" size={20} />
+            Watch live
+          </button>
+          {extra > 0 && <span className="muted nums">+{extra} more channels carry this game</span>}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function NowInfo({
   channel,
   favorite,
@@ -172,6 +214,7 @@ export default function Live() {
   const [favorites, setFavorites] = useStoredIds("umh.favorites");
   const [recent, setRecent] = useStoredIds("umh.recent");
   const [storedPins, setStoredPins] = useState<string[] | null>(readPins);
+  const liveGamesRaw = useLiveGames(true);
   const topRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -315,6 +358,36 @@ export default function Live() {
     (c) => c.name,
   );
   const recentChannels = recent.map((id) => byId.get(id)).filter((c): c is Channel => !!c);
+  // Games on now (or about to start) that one of the provider's channels actually carries.
+  const gameIndex = useMemo(() => buildGameChannelIndex(channels), [channels]);
+  const games = useMemo(() => {
+    const priority: Record<SportsGame["league"], number> = { nfl: 0, ncaaf: 1, mlb: 2, nhl: 3 };
+    return liveGamesRaw
+      .map((game) => ({ game, channels: gameIndex.find(game) }))
+      .filter((x) => x.channels.length > 0)
+      .sort(
+        (a, b) =>
+          Number(b.game.state === "in") - Number(a.game.state === "in") ||
+          priority[a.game.league] - priority[b.game.league] ||
+          a.game.startTime.localeCompare(b.game.startTime),
+      );
+  }, [liveGamesRaw, gameIndex]);
+
+  // The hero is the closest live game: smallest score gap, so it is the one worth dropping into.
+  const heroGame = useMemo(() => {
+    const live = games.filter((x) => x.game.state === "in");
+    return live.sort(
+      (a, b) =>
+        Math.abs((a.game.home.score ?? 0) - (a.game.away.score ?? 0)) - Math.abs((b.game.home.score ?? 0) - (b.game.away.score ?? 0)),
+    )[0];
+  }, [games]);
+
+  const pinnedCats = useMemo(() => {
+    const out: { name: string; label: string }[] = [];
+    for (const g of groups) for (const c of g.categories) if (pinnedCategories.includes(c.name)) out.push(c);
+    return sortAlpha(out, (c) => c.label);
+  }, [groups, pinnedCategories]);
+
   const spotlightChannel = recentChannels[0] ?? favoriteChannels[0] ?? channels.find((c) => c.icon) ?? channels[0];
 
   // /live?play=ID (from the Sports page) starts that channel as soon as the list is loaded.
@@ -464,9 +537,44 @@ export default function Live() {
         />
       ) : browsing ? (
         <div className="live__rows">
-          {!playing && spotlightChannel && <Spotlight channel={spotlightChannel} onPlay={play} />}
+          {!playing && heroGame && (
+            <GameSpotlight game={heroGame.game} channel={heroGame.channels[0]} extra={heroGame.channels.length - 1} onPlay={play} />
+          )}
+          {!playing && !heroGame && spotlightChannel && <Spotlight channel={spotlightChannel} onPlay={play} />}
+          {games.length > 0 && (
+            <Row title="Games on now" hint={`${games.filter((x) => x.game.state === "in").length} live`}>
+              {games.map(({ game, channels: ch }) => (
+                <div key={game.id} className="homegame">
+                  <GameCard game={game} channels={ch} onWatch={play} />
+                </div>
+              ))}
+            </Row>
+          )}
+          {pinnedCats.length > 0 && (
+            <Row title="Your categories">
+              {pinnedCats.map((c) => (
+                <button key={c.name} type="button" className="pintile" onClick={() => setFilter({ kind: "category", category: c.name })}>
+                  <Mark cat={c} channelLogo={categoryLogos.get(c.name)?.[0]} />
+                  <span className="pintile__text">
+                    <span className="pintile__name">{c.label}</span>
+                    <span className="pintile__count nums">{(categoryCounts.get(c.name) ?? 0).toLocaleString()} channels</span>
+                  </span>
+                </button>
+              ))}
+            </Row>
+          )}
           {recentChannels.length > 0 && <Row title="Recently watched">{recentChannels.map(card)}</Row>}
           {favoriteChannels.length > 0 && <Row title="Favorites">{favoriteChannels.map(card)}</Row>}
+          {pinnedCats.map((c) => (
+            <Row
+              key={`pin-${c.name}`}
+              title={c.label}
+              hint={`${(categoryCounts.get(c.name) ?? 0).toLocaleString()} channels`}
+              onSeeAll={() => setFilter({ kind: "category", category: c.name })}
+            >
+              {channels.filter((ch) => ch.category === c.name).slice(0, ROW_SIZE).map(card)}
+            </Row>
+          ))}
           {topGroups.map((g) => {
             const list = channels.filter((c) => groupOf.get(c.category) === g.group);
             return (

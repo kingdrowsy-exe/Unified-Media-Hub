@@ -356,8 +356,8 @@ p {
   transition: width 0.2s ease, background 0.2s ease;
 }
 
-.rail:hover .rail__in,
-.rail:focus-within .rail__in {
+.rail:not(.is-folded):hover .rail__in,
+.rail:not(.is-folded):has(:focus-visible) .rail__in {
   width: 216px;
   background: var(--surface);
   box-shadow: 8px 0 24px rgba(0, 0, 0, 0.6);
@@ -401,8 +401,8 @@ p {
   transition: opacity 0.15s ease;
 }
 
-.rail:hover .rail__link span,
-.rail:focus-within .rail__link span {
+.rail:not(.is-folded):hover .rail__link span,
+.rail:not(.is-folded):has(:focus-visible) .rail__link span {
   opacity: 1;
 }
 

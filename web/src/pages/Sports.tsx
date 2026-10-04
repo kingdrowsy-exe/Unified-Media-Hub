@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { Channel, LeagueId, SportsGame, SportsTeam, fetchChannels, fetchScoreboard } from "../api.js";
-import SafeImg from "../ui/SafeImg.js";
+import { Channel, LeagueId, SportsGame, fetchChannels, fetchScoreboard } from "../api.js";
+import GameCard from "./sports/GameCard.js";
 import Icon from "../ui/Icon.js";
 import { buildGameChannelIndex } from "../utils/gameChannels.js";
 import "./sports.css";
@@ -36,58 +35,6 @@ function shiftDay(key: string | null, delta: number): string {
 function dayLabel(key: string | null): string {
   if (!key || key === toKey(new Date())) return "Today";
   return fromKey(key).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
-}
-
-function startLabel(iso: string): string {
-  const d = new Date(iso);
-  const time = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-  return toKey(d) === toKey(new Date()) ? time : `${d.toLocaleDateString([], { weekday: "short" })} ${time}`;
-}
-
-function TeamLine({ team, state }: { team: SportsTeam; state: SportsGame["state"] }) {
-  const dim = state === "post" && team.winner === false;
-  return (
-    <div className={`team ${dim ? "is-dim" : ""}`}>
-      <SafeImg src={team.logo} className="team__logo" fallback={<span className="team__logo team__logo--blank">{team.abbr}</span>} />
-      <span className="team__name">
-        {team.rank !== undefined && <span className="team__rank nums">{team.rank}</span>}
-        {team.name}
-      </span>
-      {state === "pre" && team.record && <span className="team__record nums">{team.record}</span>}
-      {state !== "pre" && <span className="team__score nums">{team.score ?? "–"}</span>}
-    </div>
-  );
-}
-
-function GameCard({ game, channels }: { game: SportsGame; channels: Channel[] }) {
-  const best = channels[0];
-  return (
-    <article className={`game ${game.state === "in" ? "is-live" : ""}`}>
-      <header className="game__status">
-        {game.state === "in" && <span className="tag tag--live">LIVE</span>}
-        <span className={`game__detail nums ${game.state === "in" ? "is-live" : ""}`}>
-          {game.state === "pre" ? startLabel(game.startTime) : game.detail}
-        </span>
-        {game.network && <span className="game__network">{game.network}</span>}
-      </header>
-      <div className="game__teams">
-        <TeamLine team={game.away} state={game.state} />
-        <TeamLine team={game.home} state={game.state} />
-      </div>
-      <footer className="game__foot">
-        {game.odds && game.state !== "post" && <span className="game__odds nums">{game.odds}</span>}
-        {best ? (
-          <Link to={`/live?play=${best.id}`} className={`btn btn--sm ${game.state === "in" ? "btn--primary" : ""}`}>
-            <Icon name="play" size={16} />
-            {game.state === "post" ? "Replay channel" : game.state === "in" ? "Watch live" : "Open channel"}
-            {channels.length > 1 && <span className="game__more nums">+{channels.length - 1}</span>}
-          </Link>
-        ) : (
-          game.state !== "post" && <span className="game__none">No channel found</span>
-        )}
-      </footer>
-    </article>
-  );
 }
 
 function Section({ title, games, channelsFor }: { title: string; games: SportsGame[]; channelsFor: (g: SportsGame) => Channel[] }) {

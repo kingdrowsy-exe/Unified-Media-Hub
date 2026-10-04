@@ -37,7 +37,7 @@ function readView(): View {
   }
 }
 
-function Mark({ cat, channelLogo }: { cat: Cat; channelLogo?: string }) {
+export function Mark({ cat, channelLogo }: { cat: Cat; channelLogo?: string }) {
   const league = leagueLogoFor(cat.label);
   const initials = cat.label.replace(/[^A-Za-z0-9+]/g, "").slice(0, 3);
   const blank = <span className="mark__blank">{initials}</span>;
