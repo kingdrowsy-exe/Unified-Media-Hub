@@ -1,7 +1,9 @@
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Channel, SportsGame, SportsTeam } from "../../api.js";
 import Icon from "../../ui/Icon.js";
 import SafeImg from "../../ui/SafeImg.js";
+import StreamPicker from "./StreamPicker.js";
 import "../sports.css";
 
 function dayKey(d: Date): string {
@@ -39,9 +41,16 @@ interface GameCardProps {
 
 /** Scoreboard card: teams, score or start time, network, odds and a button to the matching channel. */
 export default function GameCard({ game, channels, onWatch }: GameCardProps) {
+  const navigate = useNavigate();
+  const [picking, setPicking] = useState(false);
   const best = channels[0];
   const label = game.state === "post" ? "Replay channel" : game.state === "in" ? "Watch live" : "Open channel";
-  const more = channels.length > 1 && <span className="game__more nums">+{channels.length - 1}</span>;
+  const primary = game.state === "in" ? "btn--primary" : "";
+  const play = (channel: Channel) => {
+    setPicking(false);
+    if (onWatch) onWatch(channel);
+    else navigate(`/live?play=${channel.id}`);
+  };
   return (
     <article className={`game ${game.state === "in" ? "is-live" : ""}`}>
       <header className="game__status">
@@ -58,23 +67,29 @@ export default function GameCard({ game, channels, onWatch }: GameCardProps) {
       <footer className="game__foot">
         {game.odds && game.state !== "post" && <span className="game__odds nums">{game.odds}</span>}
         {best ? (
-          onWatch ? (
-            <button type="button" className={`btn btn--sm ${game.state === "in" ? "btn--primary" : ""}`} onClick={() => onWatch(best)}>
+          <div className="game__split">
+            <button type="button" className={`btn btn--sm ${primary}`} onClick={() => play(best)}>
               <Icon name="play" size={16} />
               {label}
-              {more}
             </button>
-          ) : (
-            <Link to={`/live?play=${best.id}`} className={`btn btn--sm ${game.state === "in" ? "btn--primary" : ""}`}>
-              <Icon name="play" size={16} />
-              {label}
-              {more}
-            </Link>
-          )
+            {channels.length > 1 && (
+              <button
+                type="button"
+                className={`btn btn--sm game__choose ${primary}`}
+                onClick={() => setPicking(true)}
+                aria-label={`Choose from ${channels.length} streams`}
+                title="Choose a stream"
+              >
+                <span className="nums">+{channels.length - 1}</span>
+                <Icon name="down" size={16} />
+              </button>
+            )}
+          </div>
         ) : (
           game.state !== "post" && <span className="game__none">No channel found</span>
         )}
       </footer>
+      {picking && <StreamPicker game={game} channels={channels} onPick={play} onClose={() => setPicking(false)} />}
     </article>
   );
 }

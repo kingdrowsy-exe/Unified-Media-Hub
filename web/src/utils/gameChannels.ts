@@ -1,5 +1,5 @@
 import { Channel, SportsGame } from "../api.js";
-import { qualityFromName } from "./quality.js";
+import { rankFeeds } from "./feedQuality.js";
 
 // Provider channel names for games look like "NFL 12: Broncos vs. 49ers (10.4 4:25 PM)". A channel
 // belongs to a game when it names both teams, so we normalise names (punctuation, "St" -> "State")
@@ -13,8 +13,6 @@ function norm(text: string): string {
     .replace(/\s+/g, " ")
     .trim()} `;
 }
-
-const QUALITY_RANK: Record<string, number> = { "4K": 4, "1440p": 3, "1080p": 2, "720p": 1 };
 
 export interface GameChannelIndex {
   find: (game: SportsGame) => Channel[];
@@ -31,9 +29,7 @@ export function buildGameChannelIndex(channels: Channel[]): GameChannelIndex {
     find(game) {
       const needles = [game.away, game.home].map((t) => norm(t.short));
       const matches = candidates.filter(({ text }) => needles.every((n) => n.trim().length >= 3 && text.includes(n)));
-      return matches
-        .map((m) => m.channel)
-        .sort((a, b) => (QUALITY_RANK[qualityFromName(b.name) ?? ""] ?? 0) - (QUALITY_RANK[qualityFromName(a.name) ?? ""] ?? 0));
+      return rankFeeds(matches.map((m) => m.channel));
     },
   };
 }

@@ -188,3 +188,117 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------- split button and stream chooser ---------- */
+
+.game__split {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 2px;
+  flex: none;
+}
+
+.game__split .btn:first-child {
+  border-radius: var(--r) 4px 4px var(--r);
+}
+
+.game__split .game__choose {
+  gap: 4px;
+  padding: 0 12px;
+  border-radius: 4px var(--r) var(--r) 4px;
+}
+
+.game__foot .game__split {
+  margin-left: auto;
+}
+
+.picker-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.picker {
+  width: min(520px, 100%);
+  max-height: min(80vh, 640px);
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.picker__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 20px 4px;
+}
+
+.picker__note {
+  padding: 0 20px 12px;
+  font-size: 12px;
+}
+
+.picker__list {
+  list-style: none;
+  margin: 0;
+  padding: 0 12px 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.feed {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: var(--r);
+  background: var(--raised);
+  text-align: left;
+  transition: background 0.15s ease;
+}
+
+.feed:hover,
+.feed:focus-visible {
+  background: var(--hover);
+}
+
+.feed__rank {
+  flex: none;
+  width: 24px;
+  color: var(--muted);
+  font-weight: 600;
+  text-align: center;
+}
+
+.feed__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.feed__name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.feed__cat {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
