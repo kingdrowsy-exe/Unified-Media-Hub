@@ -39,6 +39,37 @@ function rewritePlaylist(body: string, baseUrl: string): string {
     .join("\n");
 }
 
+// Some providers sit several edge servers behind one playlist URL, and those servers are not in step:
+// consecutive requests alternate between a playlist whose newest chunk is N and one whose newest chunk
+// is N-1. A player that receives the older list sees the live edge move backwards and jumps back about a
+// chunk. So the playlist handed to the player never goes backwards: if an older window arrives shortly
+// after a newer one, the newer one is served again (its chunks are still valid for a while).
+const MAX_REGRESSION = 6;
+const PLAYLIST_MEMORY_MS = 60_000;
+const lastPlaylists = new Map<string, { sequence: number; body: string; at: number }>();
+
+function mediaSequence(playlist: string): number | null {
+  const m = playlist.match(/#EXT-X-MEDIA-SEQUENCE:(\d+)/);
+  return m ? Number(m[1]) : null;
+}
+
+function monotonicPlaylist(key: string, rewritten: string, original: string): string {
+  const sequence = mediaSequence(original);
+  if (sequence === null || /#EXT-X-ENDLIST/.test(original)) return rewritten;
+
+  const now = Date.now();
+  const last = lastPlaylists.get(key);
+  if (last && now - last.at < PLAYLIST_MEMORY_MS && sequence < last.sequence && last.sequence - sequence <= MAX_REGRESSION) {
+    return last.body;
+  }
+
+  lastPlaylists.set(key, { sequence, body: rewritten, at: now });
+  if (lastPlaylists.size > 200) {
+    for (const [k, v] of lastPlaylists) if (now - v.at > PLAYLIST_MEMORY_MS) lastPlaylists.delete(k);
+  }
+  return rewritten;
+}
+
 async function proxyHlsResource(targetUrl: string, reply: FastifyReply, range?: string) {
   const upstream = await fetch(targetUrl, range ? { headers: { range } } : undefined);
   if (!upstream.ok && upstream.status !== 206) {
@@ -51,7 +82,8 @@ async function proxyHlsResource(targetUrl: string, reply: FastifyReply, range?: 
     // Xtream panels 302/301 the given URL on to the real CDN edge server, so relative
     // segment paths in the playlist must resolve against upstream.url (post-redirect),
     // not the original targetUrl - the origin domain often doesn't serve segments at all.
-    const rewritten = rewritePlaylist(await upstream.text(), upstream.url);
+    const original = await upstream.text();
+    const rewritten = monotonicPlaylist(targetUrl, rewritePlaylist(original, upstream.url), original);
     reply.header("content-type", "application/vnd.apple.mpegurl");
     reply.header("cache-control", "no-store");
     return reply.send(rewritten);
