@@ -6,6 +6,7 @@ import { resolveEmbyStreamUrl } from "../clients/emby.js";
 import { liveStreamUrl } from "../clients/xtream.js";
 import { audioNeedsTranscode, createTsAudioFilter } from "../tsAudioFilter.js";
 import { isAudioTranscodeAvailable, peekHead, transcodeAudioToAac } from "../audioTranscode.js";
+import { cachedChunk, dedupeLivePlaylist } from "../liveDedupe.js";
 
 // Enough of a segment's start to be sure of catching its PAT/PMT (they lead each segment).
 const PEEK_BYTES = 188 * 64;
@@ -20,11 +21,18 @@ function isPlaylist(contentType: string, url: string): boolean {
 // endpoint sidesteps that entirely, and also keeps the upstream credentials/URL out of
 // the browser. Playlists are rewritten so every segment/key/nested-playlist reference
 // routes back through this proxy too.
+function proxiedUrl(absolute: string): string {
+  return `/api/hls?u=${encodeURIComponent(absolute)}`;
+}
+
+async function fetchChunk(url: string): Promise<Buffer> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`chunk ${res.status}`);
+  return Buffer.from(await res.arrayBuffer());
+}
+
 function rewritePlaylist(body: string, baseUrl: string): string {
-  const proxied = (raw: string): string => {
-    const absolute = new URL(raw, baseUrl).toString();
-    return `/api/hls?u=${encodeURIComponent(absolute)}`;
-  };
+  const proxied = (raw: string): string => proxiedUrl(new URL(raw, baseUrl).toString());
 
   return body
     .split("\n")
@@ -70,7 +78,36 @@ function monotonicPlaylist(key: string, rewritten: string, original: string): st
   return rewritten;
 }
 
+// Whole-segment transport-stream responses get their unplayable audio tracks stripped (see tsAudioFilter.ts),
+// or converted when there is nothing else to fall back to. This changes the body length, so content-length is
+// deliberately not forwarded for these.
+async function sendTransportStream(raw: Readable, reply: FastifyReply) {
+  const { head, stream } = await peekHead(raw, PEEK_BYTES);
+
+  // Audio the browser can't decode with no AAC track to fall back to (e.g. AC-3-only
+  // feeds) has to be converted; if that isn't possible, fall through to the filter, which
+  // at least keeps the video playable.
+  if (isAudioTranscodeAvailable() && audioNeedsTranscode(head)) {
+    return reply.send(transcodeAudioToAac(stream));
+  }
+
+  const filter = createTsAudioFilter();
+  // pipeline (not .pipe) so that when the client goes away and Fastify destroys `filter`,
+  // the upstream response is torn down too instead of being left half-read.
+  pipeline(stream, filter, () => {});
+  return reply.send(filter);
+}
+
 async function proxyHlsResource(targetUrl: string, reply: FastifyReply, range?: string) {
+  // A chunk the playlist step already downloaded (to fingerprint it) is served from memory.
+  if (!range) {
+    const cached = cachedChunk(targetUrl);
+    if (cached) {
+      reply.header("content-type", "video/mp2t");
+      return sendTransportStream(Readable.from([cached]), reply);
+    }
+  }
+
   const upstream = await fetch(targetUrl, range ? { headers: { range } } : undefined);
   if (!upstream.ok && upstream.status !== 206) {
     return reply.code(502).send({ error: "Failed to reach stream" });
@@ -83,7 +120,15 @@ async function proxyHlsResource(targetUrl: string, reply: FastifyReply, range?: 
     // segment paths in the playlist must resolve against upstream.url (post-redirect),
     // not the original targetUrl - the origin domain often doesn't serve segments at all.
     const original = await upstream.text();
-    const rewritten = monotonicPlaylist(targetUrl, rewritePlaylist(original, upstream.url), original);
+    // Repeated chunks are dropped when the playlist is a plain live one; otherwise (or on any trouble) it is
+    // passed through as before.
+    let prepared: string | null = null;
+    try {
+      prepared = await dedupeLivePlaylist(targetUrl, original, upstream.url, proxiedUrl, fetchChunk);
+    } catch {
+      prepared = null;
+    }
+    const rewritten = monotonicPlaylist(targetUrl, prepared ?? rewritePlaylist(original, upstream.url), original);
     reply.header("content-type", "application/vnd.apple.mpegurl");
     reply.header("cache-control", "no-store");
     return reply.send(rewritten);
@@ -91,26 +136,9 @@ async function proxyHlsResource(targetUrl: string, reply: FastifyReply, range?: 
 
   reply.header("content-type", contentType || "video/mp2t");
 
-  // Whole-segment (non-Range) transport-stream responses get their unplayable audio tracks
-  // stripped - see tsAudioFilter.ts. This changes the body length, so content-length is
-  // deliberately not forwarded for these.
   const isTransportStream = /mp2t/i.test(contentType) || /\.ts(\?|$)/i.test(targetUrl);
   if (isTransportStream && !range && upstream.status === 200 && upstream.body) {
-    const raw = Readable.fromWeb(upstream.body as Parameters<typeof Readable.fromWeb>[0]);
-    const { head, stream } = await peekHead(raw, PEEK_BYTES);
-
-    // Audio the browser can't decode with no AAC track to fall back to (e.g. AC-3-only
-    // feeds) has to be converted; if that isn't possible, fall through to the filter, which
-    // at least keeps the video playable.
-    if (isAudioTranscodeAvailable() && audioNeedsTranscode(head)) {
-      return reply.send(transcodeAudioToAac(stream));
-    }
-
-    const filter = createTsAudioFilter();
-    // pipeline (not .pipe) so that when the client goes away and Fastify destroys `filter`,
-    // the upstream response is torn down too instead of being left half-read.
-    pipeline(stream, filter, () => {});
-    return reply.send(filter);
+    return sendTransportStream(Readable.fromWeb(upstream.body as Parameters<typeof Readable.fromWeb>[0]), reply);
   }
 
   const length = upstream.headers.get("content-length");
