@@ -10,6 +10,8 @@ import { sortAlpha } from "../utils/alpha.js";
 import { groupCategories } from "../utils/categoryGroups.js";
 import { qualityFromName, stripQualityFromName } from "../utils/quality.js";
 import Icon from "../ui/Icon.js";
+import QualityBadge from "../ui/QualityBadge.js";
+import { feedQuality } from "../utils/feedQuality.js";
 import SafeImg from "../ui/SafeImg.js";
 import Row from "../ui/Row.js";
 import CategoryGrid, { LiveFilter } from "./live/CategoryGrid.js";
@@ -83,7 +85,7 @@ function Spotlight({ channel, onPlay }: { channel: Channel; onPlay: (c: Channel)
       <div className="spot__body">
         <div className="spot__tags">
           <span className="tag tag--live">LIVE</span>
-          {quality && <span className={`tag ${quality === "4K" ? "tag--accent" : ""}`}>{quality}</span>}
+          <QualityBadge channel={channel} />
           <span className="muted">{channel.category}</span>
         </div>
         <h2 className="h1 spot__title">{now ? now.title : name}</h2>
@@ -162,7 +164,7 @@ function NowInfo({
   const progress = epgProgress(now);
   const quality = qualityFromName(channel.name);
   const name = quality ? stripQualityFromName(channel.name) : channel.name;
-  const shownQuality = resolution ?? quality ?? null;
+  const shownQuality = resolution ?? feedQuality(channel).label ?? null;
   return (
     <div className="nowinfo">
       <div className="nowinfo__text">

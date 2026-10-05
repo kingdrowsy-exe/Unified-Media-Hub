@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Channel, SportsGame } from "../../api.js";
 import Icon from "../../ui/Icon.js";
+import QualityBadge from "../../ui/QualityBadge.js";
 import { feedQuality, rankFeeds } from "../../utils/feedQuality.js";
 import { stripQualityFromName } from "../../utils/quality.js";
 import "../sports.css";
@@ -50,7 +51,6 @@ export default function StreamPicker({ game, channels, onPick, onClose }: Stream
         </p>
         <ul className="picker__list">
           {ranked.map((channel, i) => {
-            const q = feedQuality(channel);
             return (
               <li key={channel.id}>
                 <button type="button" className="feed" ref={i === 0 ? firstRef : undefined} onClick={() => onPick(channel)}>
@@ -60,7 +60,7 @@ export default function StreamPicker({ game, channels, onPick, onClose }: Stream
                     <span className="feed__cat">{channel.category}</span>
                   </span>
                   {hasBest && i === 0 && <span className="tag tag--accent">Best</span>}
-                  {q.label && <span className={`tag ${q.label === "4K" ? "tag--accent" : ""}`}>{q.label}</span>}
+                  <QualityBadge channel={channel} />
                   <Icon name="play" size={16} />
                 </button>
               </li>

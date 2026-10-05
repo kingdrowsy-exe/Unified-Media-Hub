@@ -4,6 +4,7 @@ import { epgProgress, formatClock, useNowPlaying } from "../../hooks/useEpg.js";
 import { useInView } from "../../hooks/useInView.js";
 import { qualityFromName, stripQualityFromName } from "../../utils/quality.js";
 import Icon from "../../ui/Icon.js";
+import QualityBadge from "../../ui/QualityBadge.js";
 import SafeImg from "../../ui/SafeImg.js";
 
 interface ChannelCardProps {
@@ -45,7 +46,7 @@ export default function ChannelCard({ channel, active, favorite, onPlay, onToggl
           <span className="chrow__text">
             <span className="chrow__name">
               <span className="chrow__label">{name}</span>
-              {quality && <span className={`tag ${quality === "4K" ? "tag--accent" : ""}`}>{quality}</span>}
+              <QualityBadge channel={channel} />
             </span>
             <span className="chrow__now">{now ? now.title : channel.category}</span>
             {now && <span className="chrow__time nums">{timeLine}</span>}
@@ -62,7 +63,7 @@ export default function ChannelCard({ channel, active, favorite, onPlay, onToggl
           <Logo channel={channel} />
           <span className="chcard__tags">
             <span className="tag tag--live">LIVE</span>
-            {quality && <span className={`tag ${quality === "4K" ? "tag--accent" : "tag--glass"}`}>{quality}</span>}
+            <QualityBadge channel={channel} glass />
           </span>
           {progress !== null && (
             <span className="bar chcard__bar">

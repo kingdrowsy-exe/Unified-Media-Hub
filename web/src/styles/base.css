@@ -504,3 +504,7 @@ body {
   white-space: nowrap;
   border: 0;
 }
+
+.tag--dim {
+  color: var(--muted);
+}

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Channel, SportsGame, SportsTeam } from "../../api.js";
 import Icon from "../../ui/Icon.js";
+import QualityBadge from "../../ui/QualityBadge.js";
 import SafeImg from "../../ui/SafeImg.js";
 import StreamPicker from "./StreamPicker.js";
 import "../sports.css";
@@ -59,6 +60,7 @@ export default function GameCard({ game, channels, onWatch }: GameCardProps) {
           {game.state === "pre" ? startLabel(game.startTime) : game.detail}
         </span>
         {game.network && <span className="game__network">{game.network}</span>}
+        {best && <QualityBadge channel={best} />}
       </header>
       <div className="game__teams">
         <TeamLine team={game.away} state={game.state} />

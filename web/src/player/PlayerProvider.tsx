@@ -2,6 +2,7 @@ import { ReactNode, createContext, useCallback, useContext, useEffect, useMemo, 
 import { useNavigate } from "react-router-dom";
 import { Channel, streamUrlFor } from "../api.js";
 import MediaPlayer from "../ui/MediaPlayer.js";
+import { setMeasured } from "../utils/measuredQuality.js";
 import "./player.css";
 
 // One live-TV player for the whole app. It is rendered here, above the routes, so changing page never
@@ -111,7 +112,10 @@ function PlayerHost({ slot, value }: { slot: HTMLElement | null; value: HostValu
           onToggleTheater={docked ? toggleTheater : undefined}
           onClose={stop}
           onExpand={() => navigate("/live")}
-          onQuality={value.setResolution}
+          onQuality={(label) => {
+            value.setResolution(label);
+            setMeasured(channel.id, label);
+          }}
         />
       </div>
     </div>
